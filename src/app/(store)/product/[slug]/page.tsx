@@ -54,7 +54,9 @@ export default async function ProductPage({ params }: { params: { slug: string }
     <div className="on-product mx-auto max-w-app px-4 py-4 pb-24 sm:py-8 sm:pb-8">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // échappe "<" pour empêcher une sortie de balise (ex: "</script>")
+        // si un champ produit venait à contenir ce motif.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <div className="grid gap-6 sm:grid-cols-2 sm:gap-10">
         <ProductGallery images={images} name={product.name} />
