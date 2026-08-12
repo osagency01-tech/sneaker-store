@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+
+body {
+  @apply bg-paper text-ink antialiased;
+  font-family: var(--font-inter);
+  text-rendering: optimizeLegibility;
+}
+
+/* Titres façon référence : Inter ultra-bold, très serré */
+.display {
+  font-family: var(--font-inter);
+  @apply font-extrabold tracking-[-0.03em] leading-[0.98];
+}
+
+/* Données techniques : prix, pointures, références */
+.tech {
+  @apply font-mono tracking-tight tabular-nums;
+}
+
+.eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-faint;
+}
+
+/* Dégradé brume du hero */
+.hero-haze {
+  background:
+    radial-gradient(120% 80% at 70% 20%, rgba(91,87,209,.10), transparent 60%),
+    linear-gradient(180deg, #E9E8F6 0%, #F4F3FB 45%, #FFFFFF 100%);
+}
+
+/* Coup de pinceau : masque texturé bas de hero */
+.brush-edge {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='40' viewBox='0 0 400 40'%3E%3Cpath d='M0 20 Q 40 5 80 18 T 160 16 T 240 20 T 320 14 T 400 18 L400 40 L0 40 Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='40' viewBox='0 0 400 40'%3E%3Cpath d='M0 20 Q 40 5 80 18 T 160 16 T 240 20 T 320 14 T 400 18 L400 40 L0 40 Z' fill='black'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Bouton à double couche décalée (façon "Discover") */
+.btn-offset { position: relative; }
+.btn-offset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translate(6px, 6px);
+  background: theme("colors.accent.DEFAULT");
+  border-radius: inherit;
+  z-index: -1;
+  opacity: .28;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-paper;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  html { scroll-behavior: auto; }
+}
+
+.has-cartbar { padding-bottom: 84px; }
+
+/* Sur la fiche produit, la barre d'achat produit remplace la barre panier
+   globale sur mobile (évite le doublon en bas d'écran). */
+body:has(.on-product) .mobile-cart-bar { display: none; }
