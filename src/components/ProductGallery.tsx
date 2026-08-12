@@ -9,7 +9,7 @@ export function ProductGallery({ images, name }: { images: ProductImage[]; name:
   const main = images[active];
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="relative aspect-square overflow-hidden rounded-card bg-gradient-to-b from-paper-soft to-white">
         {main ? (
           <Image

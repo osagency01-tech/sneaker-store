@@ -58,11 +58,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
         // si un champ produit venait à contenir ce motif.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      <div className="grid gap-6 sm:grid-cols-2 sm:gap-10">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">
         <ProductGallery images={images} name={product.name} />
 
         {/* Infos + achat */}
-        <div className="sm:pt-2">
+        <div className="min-w-0 sm:pt-2">
           {product.brand && <div className="eyebrow">{product.brand}</div>}
           <h1 className="display mt-1 text-3xl leading-tight sm:text-4xl">{product.name}</h1>
           {product.category && (
