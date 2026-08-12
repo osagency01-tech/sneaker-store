@@ -15,34 +15,36 @@ export default async function AdminOrders() {
       </div>
 
       <div className="mt-5 overflow-hidden rounded-card border border-paper-line bg-paper">
-        <table className="w-full text-sm">
-          <thead className="border-b border-paper-line text-left text-ink-faint">
-            <tr>
-              <th className="p-3 font-medium">Commande</th>
-              <th className="p-3 font-medium">Client</th>
-              <th className="p-3 font-medium">Total</th>
-              <th className="p-3 font-medium">Statut</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-paper-line">
-            {orders.map((o: any) => (
-              <tr key={o.id} className="hover:bg-paper-soft">
-                <td className="p-3">
-                  <Link href={`/admin/orders/${o.id}`} className="tech hover:underline">
-                    {o.order_number}
-                  </Link>
-                </td>
-                <td className="p-3 text-ink-soft">{o.customer?.full_name ?? "—"}</td>
-                <td className="p-3 tech">{formatXOF(o.total)}</td>
-                <td className="p-3">
-                  <span className="rounded-pill bg-paper-soft px-2 py-0.5 text-[11px]">
-                    {o.status}
-                  </span>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="border-b border-paper-line text-left text-ink-faint">
+              <tr>
+                <th className="p-3 font-medium">Commande</th>
+                <th className="p-3 font-medium">Client</th>
+                <th className="p-3 font-medium">Total</th>
+                <th className="p-3 font-medium">Statut</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-paper-line">
+              {orders.map((o: any) => (
+                <tr key={o.id} className="hover:bg-paper-soft">
+                  <td className="p-3">
+                    <Link href={`/admin/orders/${o.id}`} className="tech hover:underline">
+                      {o.order_number}
+                    </Link>
+                  </td>
+                  <td className="p-3 text-ink-soft">{o.customer?.full_name ?? "—"}</td>
+                  <td className="p-3 tech">{formatXOF(o.total)}</td>
+                  <td className="p-3">
+                    <span className="rounded-pill bg-paper-soft px-2 py-0.5 text-[11px]">
+                      {o.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {orders.length === 0 && (
           <p className="py-10 text-center text-sm text-ink-faint">Aucune commande.</p>
         )}

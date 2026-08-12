@@ -128,11 +128,11 @@ export function ProductBuyPanel({ product }: { product: ProductWithRelations }) 
           </div>
           <button
             type="button"
-            onClick={() => handleAdd(false)}
+            onClick={() => handleAdd(true)}
             disabled={!selected}
             className="ml-auto flex-1 rounded-pill bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-40"
           >
-            {!selected ? "Choisir une pointure" : added ? "Ajouté ✓" : "Ajouter au panier"}
+            {!selected ? "Choisir une pointure" : "Commander"}
           </button>
         </div>
       </div>
