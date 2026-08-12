@@ -16,6 +16,8 @@ export function PaymentFlow({
   phone,
   accessToken,
   orderNumber,
+  initialPhase = "choose",
+  initialError = null,
 }: {
   orderId: string;
   externalReference: string;
@@ -23,14 +25,16 @@ export function PaymentFlow({
   phone: string;
   accessToken: string;
   orderNumber: string;
+  initialPhase?: Phase;
+  initialError?: string | null;
 }) {
   const router = useRouter();
   const ops = operatorsFor(countryCode);
   const [operator, setOperator] = useState<Operator | null>(ops[0] ?? null);
   const [phoneNumber, setPhoneNumber] = useState(phone);
-  const [phase, setPhase] = useState<Phase>("choose");
+  const [phase, setPhase] = useState<Phase>(initialPhase);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countRef = useRef(0);
 
@@ -71,6 +75,17 @@ export function PaymentFlow({
   }, [externalReference, orderId, accessToken, router, stopPolling]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
+
+  // Page reprenable : si on arrive déjà en phase "waiting" (une demande a
+  // été envoyée avant un rechargement/fermeture d'onglet), on relance le
+  // polling automatiquement au lieu de renvoyer une nouvelle demande.
+  useEffect(() => {
+    if (initialPhase !== "waiting") return;
+    countRef.current = 0;
+    verify();
+    pollRef.current = setInterval(verify, POLL_MS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function launch() {
     if (!operator) return;

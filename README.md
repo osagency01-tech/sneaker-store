@@ -81,23 +81,23 @@ activer Archivo / Inter / Space Mono en prod, décommentez le `<link>`
 Google Fonts documenté dans `src/app/layout.tsx`, ou installez `next/font/google`.
 
 
-## Cron de réconciliation des paiements (important)
+## Vérification du paiement (navigateur, sans cron)
 
-Le paiement Mobile Money est vérifié en direct par le navigateur (polling).
-Si le client ferme l'onglet pendant la validation, un paiement réussi
-pourrait ne jamais être constaté. Le cron `/api/cron/reconcile-payments`
-reprend côté serveur tous les paiements PENDING récents et les revérifie.
+Le paiement Mobile Money est vérifié entièrement côté navigateur, sans
+tâche planifiée serveur. La page `/payment/[id]` (`PaymentFlow`) fait un
+polling toutes les 5 s tant qu'elle reste ouverte.
 
-- Configuré dans `vercel.json` (toutes les 5 min).
-- Protégé par `CRON_SECRET` (en-tête `Authorization: Bearer <secret>`).
-- Sur Vercel : ajoutez `CRON_SECRET` dans les variables d'environnement.
-  Vercel Cron envoie automatiquement cet en-tête.
+Pour couvrir le cas où le client ferme l'onglet avant la fin, la page est
+**reprenable** : à chaque chargement (ou rechargement), le serveur relit
+l'état réel du paiement et revérifie immédiatement auprès de l'agrégateur
+si une demande avait déjà été envoyée :
+- déjà payé → redirection directe vers la commande,
+- refusé → écran d'échec avec possibilité de réessayer,
+- en attente → réaffiche l'écran « Validez sur votre téléphone » et relance
+  le polling automatiquement (pas besoin de relancer une demande).
 
-Pour tester manuellement :
-```bash
-curl -H "Authorization: Bearer VOTRE_CRON_SECRET" \
-  https://votre-site.vercel.app/api/cron/reconcile-payments
-```
+Filet de sécurité restant : la page admin **Relances** liste les commandes
+`PENDING_PAYMENT` de plus de 10 min pour relance manuelle WhatsApp.
 
 ## Relances (paniers abandonnés)
 

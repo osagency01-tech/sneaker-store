@@ -19,7 +19,7 @@ export function ProductBuyPanel({ product }: { product: ProductWithRelations }) 
     ? Math.round((1 - product.price / product.compare_at_price!) * 100)
     : 0;
 
-  function handleAdd(goToCart: boolean) {
+  function handleAdd(goToCheckout: boolean) {
     if (!selected || selected.stock <= 0) return;
     add({
       productId: product.id,
@@ -31,7 +31,8 @@ export function ProductBuyPanel({ product }: { product: ProductWithRelations }) 
       image: product.images?.[0]?.url ?? null,
       quantity: 1,
     });
-    if (goToCart) router.push("/cart");
+    // "Acheter" saute la page panier : achat direct vers le tunnel de commande.
+    if (goToCheckout) router.push("/checkout");
     else { setAdded(true); setTimeout(() => setAdded(false), 1800); }
   }
 
