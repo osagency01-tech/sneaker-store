@@ -155,6 +155,13 @@ export function CheckoutFlow() {
       });
       const data = await res.json();
       if (!res.ok) { setErr2(data.error ?? "Le paiement n'a pas pu être lancé."); setPhase("form"); return; }
+
+      // Wave : pas de push USSD, on envoie le client valider sur la page Wave.
+      if (data.kind === "redirect" && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
       setPayMsg(data.message);
       setPhase("waiting");
       countRef.current = 0;
@@ -253,7 +260,9 @@ export function CheckoutFlow() {
                   )}
                 </div>
 
-                {err2 && <p className="mt-3 text-sm text-danger">{err2}</p>}
+                {err2 && (
+                  <p className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{err2}</p>
+                )}
 
                 <button onClick={pay}
                   disabled={!operator || !isPlausiblePhone(payPhone, info.country) || phase === "pushing"}

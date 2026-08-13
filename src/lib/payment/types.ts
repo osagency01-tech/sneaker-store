@@ -11,6 +11,7 @@ export type CheckoutInput = {
 
 export type CheckoutResult =
   | { kind: "ussd_push"; reference: string; providerTxId: string | null; message: string }
+  | { kind: "redirect"; reference: string; providerTxId: string | null; url: string; message: string }
   | { kind: "error"; message: string };
 
 export type PaymentState = "paid" | "rejected" | "pending";

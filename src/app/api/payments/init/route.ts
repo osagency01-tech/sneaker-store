@@ -77,5 +77,18 @@ export async function POST(req: Request) {
     .update({ operator, provider_tx_id: result.providerTxId })
     .eq("id", payment.id);
 
-  return NextResponse.json({ message: result.message, reference: result.reference });
+  if (result.kind === "redirect") {
+    return NextResponse.json({
+      kind: "redirect",
+      url: result.url,
+      message: result.message,
+      reference: result.reference,
+    });
+  }
+
+  return NextResponse.json({
+    kind: "ussd_push",
+    message: result.message,
+    reference: result.reference,
+  });
 }

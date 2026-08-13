@@ -26,6 +26,37 @@ const OPERATOR_TO_SEBPAY: Record<Operator, string> = {
 const PAID = ["approved", "success", "successful", "paid", "completed"];
 const REJECTED = ["rejected", "failed", "cancelled", "declined", "expired"];
 
+/* Traduit une erreur brute SebPay (message technique, souvent en anglais)
+   en message court et compréhensible pour un client final. On ne renvoie
+   JAMAIS le JSON brut de l'erreur — seulement ce texte. */
+function humanizeSebpayError(raw: string): string {
+  const s = raw.toLowerCase();
+
+  if (/(network|operator|réseau|opérateur).*(match|correspond)|wrong network|invalid operator/.test(s)) {
+    return "Le numéro ne correspond pas à l'opérateur choisi. Vérifiez votre numéro et votre réseau.";
+  }
+  if (/insufficient|balance|solde|funds/.test(s)) {
+    return "Solde Mobile Money insuffisant pour ce paiement.";
+  }
+  if (/invalid.*(phone|number|msisdn)|numéro.*invalide/.test(s)) {
+    return "Numéro de téléphone invalide. Vérifiez le numéro saisi.";
+  }
+  if (/api key|unauthorized|forbidden|not active|inactive/.test(s)) {
+    return "Le service de paiement est momentanément indisponible. Réessayez dans un instant.";
+  }
+  if (/timeout|expired|délai/.test(s)) {
+    return "Le délai de la demande a expiré. Réessayez.";
+  }
+  if (/duplicate|already|déjà/.test(s)) {
+    return "Cette commande a déjà une demande de paiement en cours.";
+  }
+  if (/limit|plafond/.test(s)) {
+    return "Le montant dépasse le plafond autorisé pour ce compte Mobile Money.";
+  }
+
+  return "Le paiement n'a pas pu être lancé. Réessayez ou choisissez un autre opérateur.";
+}
+
 export class SebpayProvider implements PaymentProvider {
   readonly name = "sebpay";
 
@@ -92,19 +123,32 @@ export class SebpayProvider implements PaymentProvider {
       const { ok, data } = await this.call("POST", "/collections", payload);
 
       if (!ok) {
-        const detail = data?.errors || data?.detail || data?.details || null;
+        // Le détail technique (data.errors/detail) part dans les logs serveur
+        // uniquement — jamais montré au client, qui ne voit qu'un message clair.
+        const raw = String(data?.message || data?.error || "");
+        if (raw) console.error("SebPay createCheckout error:", raw, data?.errors || data?.detail || "");
+        return { kind: "error", message: humanizeSebpayError(raw) };
+      }
+
+      const txId = data?.data?.transaction_id ?? null;
+      const providerLink = data?.data?.provider_link;
+
+      // Wave fonctionne par redirection (pas de push USSD) : SebPay renvoie
+      // une provider_link vers laquelle le client doit être envoyé.
+      if (providerLink) {
         return {
-          kind: "error",
-          message:
-            (data?.message || data?.error || "Le paiement n'a pas pu être lancé.") +
-            (detail ? " — " + JSON.stringify(detail) : ""),
+          kind: "redirect",
+          reference: input.externalReference,
+          providerTxId: txId,
+          url: providerLink,
+          message: "Vous allez être redirigé vers Wave pour valider votre paiement.",
         };
       }
 
       return {
         kind: "ussd_push",
         reference: input.externalReference,
-        providerTxId: data?.data?.transaction_id ?? null,
+        providerTxId: txId,
         message:
           "Un message vient d'être envoyé sur votre téléphone. Composez votre code Mobile Money pour valider le paiement.",
       };

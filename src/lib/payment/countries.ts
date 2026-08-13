@@ -55,13 +55,15 @@ export function isPlausiblePhone(phone: string, countryCode: string): boolean {
   return Math.abs(len - country.phoneDigits) <= 1;
 }
 
-/* Normalise un numéro en MSISDN international (chiffres seuls). */
+/* Normalise un numéro en MSISDN pour SebPay (chiffres seuls).
+   IMPORTANT : SebPay attend l'indicatif pays + le numéro national TEL QUEL,
+   0 initial compris (ex Bénin MTN "0167112809" -> "2290167112809"). On ne
+   retire donc JAMAIS un éventuel 0 en tête — seul le cas où l'indicatif est
+   déjà présent est court-circuité, pour ne pas le dupliquer. */
 export function normalizeMsisdn(phone: string, dial: string): string {
   const d = phone.replace(/\D/g, "");
   if (d.startsWith(dial)) return d.slice(0, 15);
-  // retire un éventuel 0 national en tête
-  const local = d.replace(/^0+/, "");
-  return (dial + local).slice(0, 15);
+  return (dial + d).slice(0, 15);
 }
 
 export function operatorsFor(countryCode: string): Operator[] {
