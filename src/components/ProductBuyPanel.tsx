@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ProductWithRelations } from "@/types/db";
 import { useCart } from "@/lib/cart/store";
 import { formatXOF } from "@/lib/format";
+import { trackPixelEvent } from "@/lib/meta-pixel";
 
 export function ProductBuyPanel({ product }: { product: ProductWithRelations }) {
   const { add } = useCart();
@@ -30,6 +31,14 @@ export function ProductBuyPanel({ product }: { product: ProductWithRelations }) 
       price: product.price,
       image: product.images?.[0]?.url ?? null,
       quantity: 1,
+    });
+    trackPixelEvent("AddToCart", {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: "product",
+      value: product.price,
+      currency: "XOF",
+      contents: [{ id: product.id, quantity: 1, item_price: product.price }],
     });
     // "Acheter" saute la page panier : achat direct vers le tunnel de commande.
     if (goToCheckout) router.push("/checkout");

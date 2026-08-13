@@ -66,6 +66,7 @@ Les clés Supabase sont dans **Project Settings → API**.
 | `SEBPAY_PUBLIC_KEY` / `SEBPAY_SECRET_KEY` | Clés SebPay (prod) |
 | `RELAY_URL` / `RELAY_SECRET` | Relais IP fixe pour SebPay — voir `relay-server/README.md` |
 | `RESEND_API_KEY` / `RESEND_FROM` | Emails transactionnels (optionnel) |
+| `NEXT_PUBLIC_META_PIXEL_ID` | Meta Pixel (Facebook Ads) — absent = pixel désactivé |
 
 ## 6. Déploiement Vercel
 

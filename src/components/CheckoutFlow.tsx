@@ -17,6 +17,7 @@ import {
   operatorsFor, isPlausiblePhone, findCountry, OPERATOR_LABEL, type Operator,
 } from "@/lib/payment/countries";
 import { CountrySelect } from "@/components/CountrySelect";
+import { trackPixelEvent } from "@/lib/meta-pixel";
 
 const POLL_MS = 5000;
 const MAX_POLLS = 60;
@@ -57,6 +58,19 @@ export function CheckoutFlow() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
   useEffect(() => () => stopPolling(), [stopPolling]);
+
+  const initiateTracked = useRef(false);
+  useEffect(() => {
+    if (initiateTracked.current || lines.length === 0) return;
+    initiateTracked.current = true;
+    trackPixelEvent("InitiateCheckout", {
+      value: subtotal,
+      currency: "XOF",
+      num_items: lines.reduce((n, l) => n + l.quantity, 0),
+      content_ids: lines.map((l) => l.productId),
+      contents: lines.map((l) => ({ id: l.productId, quantity: l.quantity, item_price: l.price })),
+    });
+  }, [lines, subtotal]);
 
   if (lines.length === 0 && phase !== "paid") {
     return (

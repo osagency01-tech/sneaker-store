@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatXOF } from "@/lib/format";
 import type { OrderStatus } from "@/types/db";
+import { PurchasePixelEvent } from "@/components/PurchasePixelEvent";
 
 export const metadata = { title: "Ma commande" };
 export const dynamic = "force-dynamic";
@@ -46,6 +47,18 @@ export default async function OrderPage({
 
   return (
     <div className="min-h-screen bg-paper-soft">
+      {searchParams.paid === "1" && status === "PAID" && (
+        <PurchasePixelEvent
+          orderId={o.id}
+          orderNumber={o.order_number}
+          total={o.total}
+          items={o.items.map((it: any) => ({
+            productId: it.product_id,
+            quantity: it.quantity,
+            unitPrice: it.unit_price,
+          }))}
+        />
+      )}
       <div className="mx-auto max-w-2xl px-4 py-10">
         {/* Bandeau statut */}
         <div className="rounded-card border border-paper-line bg-paper p-6 text-center shadow-card">
