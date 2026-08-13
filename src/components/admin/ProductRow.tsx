@@ -91,7 +91,7 @@ function StockInput({ variant }: { variant: Variant }) {
           min={0}
           value={value}
           onChange={(e) => setValue(Math.max(0, Number(e.target.value)))}
-          className="tech w-full rounded-md border border-paper-line px-1 py-1 text-center text-sm"
+          className="tech w-full rounded-md border border-paper-line px-1 py-1 text-center text-base"
         />
         {dirty && (
           <button

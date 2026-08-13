@@ -26,8 +26,10 @@ export default function AdminLogin() {
     router.refresh();
   }
 
+  // text-base (16px) et non text-sm : en dessous de 16px, iOS Safari zoome
+  // automatiquement sur le champ au focus et ne dézoome pas correctement.
   const field =
-    "w-full rounded-xl border border-paper-line bg-paper px-4 py-3 text-sm focus:border-ink";
+    "w-full rounded-xl border border-paper-line bg-paper px-4 py-3 text-base focus:border-ink";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper-soft px-4">

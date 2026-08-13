@@ -23,7 +23,7 @@ export function OrderStatusControl({
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value as OrderStatus)}
-        className="rounded-xl border border-paper-line bg-paper px-3 py-2 text-sm"
+        className="rounded-xl border border-paper-line bg-paper px-3 py-2 text-base"
       >
         {FLOW.map((s) => (
           <option key={s} value={s}>{s}</option>

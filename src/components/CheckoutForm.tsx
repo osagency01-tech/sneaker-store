@@ -80,7 +80,7 @@ export function CheckoutForm() {
   }
 
   const field =
-    "w-full rounded-xl border border-paper-line bg-paper px-4 py-3 text-sm focus:border-ink";
+    "w-full rounded-xl border border-paper-line bg-paper px-4 py-3 text-base focus:border-ink";
 
   return (
     <form onSubmit={submit} className="grid gap-8 lg:grid-cols-[1fr_340px]">
