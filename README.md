@@ -20,7 +20,7 @@ paiement **Mobile Money** (SebPay) avec vérification serveur, et back-office ad
 
 ```bash
 npm install
-cp .env.example .env.local   # puis remplir les valeurs
+# créez .env.local avec les variables listées en section 5
 npm run dev
 ```
 
@@ -54,7 +54,7 @@ values ('UUID_DE_L_UTILISATEUR', 'admin', 'Votre Nom');
 
 ## 5. Variables d'environnement
 
-Voir `.env.example`. Les clés Supabase sont dans **Project Settings → API**.
+Les clés Supabase sont dans **Project Settings → API**.
 
 | Variable | Rôle |
 |---|---|
@@ -64,7 +64,8 @@ Voir `.env.example`. Les clés Supabase sont dans **Project Settings → API**.
 | `NEXT_PUBLIC_SITE_URL` | URL publique (SEO, sitemap) |
 | `PAYMENT_PROVIDER` | `mock` (dev) ou `sebpay` (prod) |
 | `SEBPAY_PUBLIC_KEY` / `SEBPAY_SECRET_KEY` | Clés SebPay (prod) |
-| `RESEND_API_KEY` | Emails transactionnels (optionnel) |
+| `RELAY_URL` / `RELAY_SECRET` | Relais IP fixe pour SebPay — voir `relay-server/README.md` |
+| `RESEND_API_KEY` / `RESEND_FROM` | Emails transactionnels (optionnel) |
 
 ## 6. Déploiement Vercel
 

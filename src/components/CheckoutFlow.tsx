@@ -14,8 +14,9 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/store";
 import { formatXOF } from "@/lib/format";
 import {
-  COUNTRIES, operatorsFor, OPERATOR_LABEL, type Operator,
+  operatorsFor, isPlausiblePhone, findCountry, OPERATOR_LABEL, type Operator,
 } from "@/lib/payment/countries";
+import { CountrySelect } from "@/components/CountrySelect";
 
 const POLL_MS = 5000;
 const MAX_POLLS = 60;
@@ -74,6 +75,10 @@ export function CheckoutFlow() {
   async function submitInfo(e: React.FormEvent) {
     e.preventDefault();
     setErr1(null);
+    if (!isPlausiblePhone(info.phone, info.country)) {
+      setErr1("Ce numéro ne semble pas correspondre au pays sélectionné. Vérifiez le nombre de chiffres.");
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch("/api/checkout", {
@@ -183,22 +188,23 @@ export function CheckoutFlow() {
                 placeholder="Awa Traoré" autoComplete="name" />
             </div>
             <div>
+              <label className="eyebrow mb-1.5 block">Pays de livraison</label>
+              <CountrySelect value={info.country} onChange={(code) => setInfo((f) => ({ ...f, country: code }))} />
+            </div>
+            <div>
               <label className="eyebrow mb-1.5 block">Numéro WhatsApp (pour le livreur)</label>
               <input required value={info.phone} onChange={set("phone")} className={field}
                 placeholder="07 00 00 00 00" inputMode="tel" autoComplete="tel" />
+              {info.phone.length > 3 && !isPlausiblePhone(info.phone, info.country) && (
+                <p className="mt-1 text-xs text-warn">
+                  Ce nombre de chiffres ne correspond pas à un numéro {findCountry(info.country)?.name} habituel.
+                </p>
+              )}
             </div>
             <div>
               <label className="eyebrow mb-1.5 block">Email — suivi du colis (optionnel)</label>
               <input type="email" value={info.email} onChange={set("email")} className={field}
                 placeholder="awa@email.com" autoComplete="email" />
-            </div>
-            <div>
-              <label className="eyebrow mb-1.5 block">Pays de livraison</label>
-              <select value={info.country} onChange={set("country")} className={field}>
-                {COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>{c.name} (+{c.dial})</option>
-                ))}
-              </select>
             </div>
 
             {err1 && <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{err1}</p>}
@@ -236,14 +242,21 @@ export function CheckoutFlow() {
                   <label className="eyebrow mb-1.5 block">Numéro Mobile Money</label>
                   <input value={payPhone} onChange={(e) => setPayPhone(e.target.value)}
                     className={field} inputMode="tel" placeholder="07 00 00 00 00" />
-                  <p className="mt-1 text-xs text-ink-faint">
-                    Pré-rempli avec votre WhatsApp. Modifiable si le compte Mobile Money est différent.
-                  </p>
+                  {payPhone.length > 3 && !isPlausiblePhone(payPhone, info.country) ? (
+                    <p className="mt-1 text-xs text-warn">
+                      Ce nombre de chiffres ne correspond pas à un numéro {findCountry(info.country)?.name} habituel.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-ink-faint">
+                      Pré-rempli avec votre WhatsApp. Modifiable si le compte Mobile Money est différent.
+                    </p>
+                  )}
                 </div>
 
                 {err2 && <p className="mt-3 text-sm text-danger">{err2}</p>}
 
-                <button onClick={pay} disabled={!operator || payPhone.length < 6 || phase === "pushing"}
+                <button onClick={pay}
+                  disabled={!operator || !isPlausiblePhone(payPhone, info.country) || phase === "pushing"}
                   className="mt-5 w-full rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper disabled:opacity-40">
                   {phase === "pushing" ? "Envoi…" : `Confirmer le paiement · ${formatXOF(total)}`}
                 </button>
