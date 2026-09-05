@@ -1,10 +1,12 @@
 // Re-downloads every product_images row already hosted on our Supabase Storage bucket,
-// strips the background (transparent PNG), re-uploads, and updates the DB url.
+// strips the background (transparent PNG), resizes it to a sane web size, re-encodes
+// as WebP, re-uploads with a long cache-control, and updates the DB url.
 // Skips rows still pointing at placehold.co (nothing to reprocess there).
 
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { removeBackground } from "@imgly/background-removal-node";
+import sharp from "sharp";
 
 function parseEnvLocal() {
   const text = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
@@ -17,6 +19,14 @@ function parseEnvLocal() {
 }
 
 const BUCKET = "product-images";
+// Longest edge in pixels — largement suffisant pour un plein écran mobile/desktop
+// en affichage "object-contain" dans une carte carrée, sans télécharger un poids inutile.
+const MAX_DIMENSION = 1400;
+const WEBP_QUALITY = 82;
+// 7 jours : assez long pour profiter du cache navigateur/CDN, assez court pour
+// qu'une image remplacée par l'admin ne reste pas bloquée trop longtemps.
+const CACHE_CONTROL = "604800";
+
 const env = parseEnvLocal();
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -37,28 +47,40 @@ async function main() {
   if (error) throw error;
 
   console.log(`Reprocessing ${rows.length} rows...`);
-  let done = 0, failed = 0;
+  let done = 0, failed = 0, bytesBefore = 0, bytesAfter = 0;
 
   for (const row of rows) {
     try {
       const res = await fetch(row.url);
       if (!res.ok) throw new Error(`fetch ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
+      bytesBefore += buf.length;
       const mime = mimeFromUrl(row.url);
 
+      // L'image est déjà détourée si elle a déjà été traitée (canal alpha présent) ;
+      // on repasse quand même par removeBackground pour rester idempotent si la
+      // source d'origine n'était pas encore détourée.
       const cutout = await removeBackground(new Blob([buf], { type: mime }));
-      const outBuf = Buffer.from(await cutout.arrayBuffer());
+      const cutoutBuf = Buffer.from(await cutout.arrayBuffer());
 
-      // path = everything after the bucket name in the public URL, with .png extension
+      const outBuf = await sharp(cutoutBuf)
+        .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+
+      bytesAfter += outBuf.length;
+
+      // path = everything after the bucket name in the public URL, with .webp extension
       const marker = `/object/public/${BUCKET}/`;
       const idx = row.url.indexOf(marker);
       const oldPath = decodeURIComponent(row.url.slice(idx + marker.length));
-      const newPath = oldPath.replace(/\.(jpg|jpeg|webp|png|gif)$/i, "") + ".png";
+      const newPath = oldPath.replace(/\.(jpg|jpeg|webp|png|gif)$/i, "") + ".webp";
 
       const { error: uploadErr } = await supabase.storage
         .from(BUCKET)
-        .upload(newPath, new Blob([outBuf], { type: "image/png" }), {
-          contentType: "image/png",
+        .upload(newPath, new Blob([outBuf], { type: "image/webp" }), {
+          contentType: "image/webp",
+          cacheControl: CACHE_CONTROL,
           upsert: true,
         });
       if (uploadErr) throw uploadErr;
@@ -76,7 +98,7 @@ async function main() {
       }
 
       done++;
-      console.log(`OK  [${done}/${rows.length}] ${newPath}`);
+      console.log(`OK  [${done}/${rows.length}] ${newPath} (${buf.length}B -> ${outBuf.length}B)`);
     } catch (err) {
       failed++;
       console.error(`FAIL ${row.url} -> ${String(err && err.message || err)}`);
@@ -84,6 +106,10 @@ async function main() {
   }
 
   console.log(`\nDone. ok=${done} failed=${failed}`);
+  if (bytesBefore > 0) {
+    const pct = Math.round((1 - bytesAfter / bytesBefore) * 100);
+    console.log(`Total size: ${bytesBefore}B -> ${bytesAfter}B (-${pct}%)`);
+  }
 }
 
 main().catch((err) => {

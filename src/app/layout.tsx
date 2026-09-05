@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { MetaPixel } from "@/components/MetaPixel";
+import { TrackPageView } from "@/components/analytics/TrackPageView";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body>
         <MetaPixel />
+        <TrackPageView />
         {children}
       </body>
     </html>

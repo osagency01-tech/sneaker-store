@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { trackPixelEvent } from "@/lib/meta-pixel";
+import { trackFunnelEvent } from "@/lib/analytics/track";
 
 type Item = {
   productId: string | null;
@@ -41,6 +42,7 @@ export function PurchasePixelEvent({
       num_items: items.reduce((n, i) => n + i.quantity, 0),
       order_id: orderNumber,
     });
+    trackFunnelEvent("PURCHASE", { productId: items[0]?.productId ?? null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 

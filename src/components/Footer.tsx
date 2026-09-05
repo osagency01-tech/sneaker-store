@@ -19,9 +19,9 @@ export function Footer() {
         <div className="text-sm">
           <div className="eyebrow mb-3">Aide</div>
           <ul className="space-y-2 text-ink-soft">
-            <li>Livraison Mobile Money</li>
+            <li><a href="/livraison" className="hover:text-ink">Livraison</a></li>
             <li>Suivi de commande par lien</li>
-            <li>Retours sous 7 jours</li>
+            <li><a href="/retours" className="hover:text-ink">Retours sous 7 jours</a></li>
           </ul>
         </div>
       </div>

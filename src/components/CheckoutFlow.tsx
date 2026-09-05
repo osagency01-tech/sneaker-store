@@ -18,6 +18,7 @@ import {
 } from "@/lib/payment/countries";
 import { CountrySelect } from "@/components/CountrySelect";
 import { trackPixelEvent } from "@/lib/meta-pixel";
+import { trackFunnelEvent } from "@/lib/analytics/track";
 
 const POLL_MS = 5000;
 const MAX_POLLS = 60;
@@ -70,6 +71,7 @@ export function CheckoutFlow() {
       content_ids: lines.map((l) => l.productId),
       contents: lines.map((l) => ({ id: l.productId, quantity: l.quantity, item_price: l.price })),
     });
+    trackFunnelEvent("BEGIN_CHECKOUT");
   }, [lines, subtotal]);
 
   if (lines.length === 0 && phase !== "paid") {

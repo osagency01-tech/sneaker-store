@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { removeBackground } from "@imgly/background-removal-node";
+import sharp from "sharp";
 
 function parseEnvLocal() {
   const text = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
@@ -28,6 +29,9 @@ function parseArgs() {
 }
 
 const BUCKET = "product-images";
+const MAX_DIMENSION = 1400;
+const WEBP_QUALITY = 82;
+const CACHE_CONTROL = "604800";
 
 async function ensureBucket(supabase) {
   const { data: buckets, error } = await supabase.storage.listBuckets();
@@ -86,20 +90,34 @@ async function main() {
   }
   const contentType = res.headers.get("content-type") || "image/jpeg";
 
-  // Strip the studio/editorial background so the product sits on a transparent PNG.
-  let finalBuf = buf;
-  let finalContentType = contentType;
-  let ext = extFromContentType(contentType);
+  // Strip the studio/editorial background so the product sits on a transparent cutout.
+  let cutoutBuf = buf;
+  let cutoutMime = contentType;
   try {
     const mime = extFromContentType(contentType) === "png" ? "image/png"
       : extFromContentType(contentType) === "webp" ? "image/webp"
       : "image/jpeg";
     const cutoutBlob = await removeBackground(new Blob([buf], { type: mime }));
-    finalBuf = Buffer.from(await cutoutBlob.arrayBuffer());
-    finalContentType = "image/png";
-    ext = "png";
+    cutoutBuf = Buffer.from(await cutoutBlob.arrayBuffer());
+    cutoutMime = "image/png";
   } catch (bgErr) {
-    console.error(JSON.stringify({ warn: "background removal failed, uploading original", error: String(bgErr) }));
+    console.error(JSON.stringify({ warn: "background removal failed, using original", error: String(bgErr) }));
+  }
+
+  // Resize + re-encode to WebP so the file stays light on mobile connections.
+  let finalBuf = cutoutBuf;
+  let finalContentType = "image/webp";
+  let ext = "webp";
+  try {
+    finalBuf = await sharp(cutoutBuf)
+      .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+  } catch (resizeErr) {
+    console.error(JSON.stringify({ warn: "resize/webp failed, uploading cutout as-is", error: String(resizeErr) }));
+    finalBuf = cutoutBuf;
+    finalContentType = cutoutMime;
+    ext = extFromContentType(cutoutMime);
   }
 
   const path = `${slug}/${name}.${ext}`;
@@ -107,6 +125,7 @@ async function main() {
   const blob = new Blob([finalBuf], { type: finalContentType });
   const { error: uploadErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: finalContentType,
+    cacheControl: CACHE_CONTROL,
     upsert: true,
   });
   if (uploadErr) {

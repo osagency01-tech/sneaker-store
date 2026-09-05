@@ -1,5 +1,4 @@
 import { getAllProducts } from "@/lib/admin-data";
-import { formatXOF } from "@/lib/format";
 import { ProductRow } from "@/components/admin/ProductRow";
 
 export const dynamic = "force-dynamic";
@@ -22,13 +21,17 @@ export default async function AdminProducts() {
             <ProductRow
               key={p.id}
               id={p.id}
+              slug={p.slug}
               name={p.name}
               brand={p.brand}
-              price={formatXOF(p.price)}
+              price={p.price}
+              compareAtPrice={p.compare_at_price}
+              description={p.description}
               category={p.category?.name ?? "—"}
               status={p.status}
               totalStock={totalStock}
               variants={p.variants ?? []}
+              images={p.images ?? []}
             />
           );
         })}
