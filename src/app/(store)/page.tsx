@@ -7,8 +7,18 @@ export const revalidate = 60;
 
 export default async function HomePage() {
   const [products, categories] = await Promise.all([getProducts(), getCategories()]);
-  const hero = products[0];
-  const rest = products.slice(1);
+
+  // Le produit flottant du Hero doit toujours être une sneaker.
+  // Les sacs ne doivent jamais apparaître ici.
+  const hero =
+    products.find(
+      (p) =>
+        p.category?.slug !== "sacs" &&
+        p.slug !== "sac-couleur" &&
+        p.slug !== "sac-motif"
+    ) ?? products[0];
+
+  const rest = products.filter((p) => p.id !== hero?.id);
   const heroImg = hero?.images?.[0]?.url ?? null;
 
   return (
@@ -18,16 +28,21 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-app items-center gap-4 px-4 pb-24 pt-8 sm:pb-28 sm:pt-14 lg:grid-cols-2">
           {/* Texte */}
           <div className="relative z-10 animate-fadeUp">
-            <div className="eyebrow text-accent-ink">Sneaker premium · confort ultime</div>
+            <div className="eyebrow text-accent-ink">
+              Sneaker premium · confort ultime
+            </div>
+
             <h1 className="display mt-3 text-5xl text-ink sm:text-6xl lg:text-7xl">
               Marque ton pas.
               <br />
               Garde ta foulée.
             </h1>
+
             <p className="mt-5 max-w-md text-ink-soft">
-              Une sélection pointue de sneakers, boots et pièces designer. Choisis, paie au Mobile
-              Money, reçois. Sans compte.
+              Une sélection pointue de sneakers, boots et pièces designer.
+              Choisis, paie au Mobile Money, reçois. Sans compte.
             </p>
+
             <div className="mt-8 flex items-center gap-4">
               <Link
                 href="/shop"
@@ -35,6 +50,7 @@ export default async function HomePage() {
               >
                 Découvrir
               </Link>
+
               {hero && (
                 <Link
                   href={`/product/${hero.slug}`}
@@ -66,17 +82,25 @@ export default async function HomePage() {
         <div className="brush-edge absolute inset-x-0 bottom-0 h-10 bg-paper" />
       </section>
 
-      {/* ============ CARROUSEL PRODUITS (cartes flottantes) ============ */}
+      {/* ============ CARROUSEL PRODUITS ============ */}
       <section className="mx-auto -mt-10 max-w-app px-4">
         <div className="mb-5 flex items-end justify-between">
           <h2 className="display text-2xl">Nouveautés</h2>
-          <Link href="/shop" className="text-sm font-semibold text-accent-ink hover:underline">
+
+          <Link
+            href="/shop"
+            className="text-sm font-semibold text-accent-ink hover:underline"
+          >
             Tout voir
           </Link>
         </div>
+
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {rest.map((p) => (
-            <div key={p.id} className="w-[46%] shrink-0 snap-start sm:w-[300px]">
+            <div
+              key={p.id}
+              className="w-[46%] shrink-0 snap-start sm:w-[300px]"
+            >
               <ProductCard product={p} floating />
             </div>
           ))}
@@ -108,7 +132,10 @@ export default async function HomePage() {
             ["Sans compte", "Commande en quelques champs, suis par lien."],
             ["Stock réel", "Ce qui s'affiche est ce qui part."],
           ].map(([t, d]) => (
-            <div key={t} className="rounded-card border border-paper-line bg-paper p-6 shadow-card">
+            <div
+              key={t}
+              className="rounded-card border border-paper-line bg-paper p-6 shadow-card"
+            >
               <div className="display text-lg">{t}</div>
               <p className="mt-1.5 text-sm text-ink-faint">{d}</p>
             </div>
