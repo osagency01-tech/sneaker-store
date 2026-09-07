@@ -9,7 +9,7 @@
 
 with c as (select id from categories where slug = 'sneakers')
 insert into products (name, slug, brand, description, price, compare_at_price, category_id, status)
-select 'Tn Spécial', 'nike-tn-special', 'Nike', 'Nike Tn Spécial', 21500, 25000, c.id, 'active'
+select 'Tn Spécial', 'nike-tn-special', 'Nike', 'Nike Tn Spécial',  15000, 25000, c.id, 'active'
 from c on conflict (slug) do update
   set price = excluded.price, compare_at_price = excluded.compare_at_price, status = 'active';
 

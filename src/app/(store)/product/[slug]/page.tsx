@@ -1,4 +1,3 @@
-import Image from "next/image";
 import React from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -18,14 +17,19 @@ export async function generateMetadata({
   params: { slug: string };
 }): Promise<Metadata> {
   const product = await getProductBySlug(params.slug);
-  if (!product) return { title: "Modèle introuvable" };
+
+  if (!product) {
+    return { title: "Modèle introuvable" };
+  }
 
   return {
     title: product.name,
     description: product.description ?? undefined,
     openGraph: {
       title: product.name,
-      images: product.images?.[0]?.url ? [product.images[0].url] : [],
+      images: product.images?.[0]?.url
+        ? [product.images[0].url]
+        : [],
     },
   };
 }
@@ -37,10 +41,14 @@ export default async function ProductPage({
 }) {
   const product = await getProductBySlug(params.slug);
 
-  if (!product) notFound();
+  if (!product) {
+    notFound();
+  }
 
   const images = product.images ?? [];
-  const inStock = (product.variants ?? []).some((v) => v.stock > 0);
+  const inStock = (product.variants ?? []).some(
+    (v) => v.stock > 0
+  );
 
   // Données structurées Product (SEO)
   const jsonLd = {
@@ -65,18 +73,28 @@ export default async function ProductPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          __html: JSON.stringify(jsonLd).replace(
+            /</g,
+            "\\u003c"
+          ),
         }}
       />
 
       <TrackProductView productId={product.id} />
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">
-        <ProductGallery images={images} name={product.name} />
+        <ProductGallery
+          images={images}
+          name={product.name}
+        />
 
         {/* Infos + achat */}
         <div className="min-w-0 sm:pt-2">
-          {product.brand && <div className="eyebrow">{product.brand}</div>}
+          {product.brand && (
+            <div className="eyebrow">
+              {product.brand}
+            </div>
+          )}
 
           <h1 className="display mt-1 text-3xl leading-tight sm:text-4xl">
             {product.name}
@@ -117,7 +135,9 @@ export default async function ProductPage({
 
           {product.description && (
             <div className="mt-6 border-t border-paper-line pt-6">
-              <div className="eyebrow mb-2">Description</div>
+              <div className="eyebrow mb-2">
+                Description
+              </div>
 
               <p className="text-sm leading-relaxed text-ink-soft">
                 {product.description}
@@ -126,7 +146,9 @@ export default async function ProductPage({
           )}
 
           <div className="mt-6 flex items-center justify-between border-t border-paper-line pt-4 text-sm">
-            <span className="text-ink-faint">Prix</span>
+            <span className="text-ink-faint">
+              Prix
+            </span>
 
             <span className="flex items-baseline gap-1.5">
               <span className="tech font-bold text-ink">
@@ -166,21 +188,32 @@ function ReassuranceItem({
         className="flex h-5 w-5 shrink-0 items-center justify-center text-ink"
         aria-hidden
       >
-        {React.cloneElement(icon as React.ReactElement, {
-          size: 18,
-          strokeWidth: 1.8,
-        })}
+        {React.cloneElement(
+          icon as React.ReactElement,
+          {
+            size: 18,
+            strokeWidth: 1.8,
+          }
+        )}
       </span>
 
       <div className="min-w-0 leading-tight">
-        <div className="font-medium text-ink">{label}</div>
-        <div className="truncate text-xs text-ink-faint">{detail}</div>
+        <div className="font-medium text-ink">
+          {label}
+        </div>
+
+        <div className="truncate text-xs text-ink-faint">
+          {detail}
+        </div>
       </div>
     </div>
   );
 
   return href ? (
-    <a href={href} className="block transition-opacity hover:opacity-80">
+    <a
+      href={href}
+      className="block transition-opacity hover:opacity-80"
+    >
       {content}
     </a>
   ) : (

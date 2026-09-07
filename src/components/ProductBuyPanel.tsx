@@ -8,6 +8,8 @@ import { formatXOF } from "@/lib/format";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { trackFunnelEvent } from "@/lib/analytics/track";
 
+const WHATSAPP_NUMBER = "2250161853443";
+
 export function ProductBuyPanel({
   product,
 }: {
@@ -16,11 +18,15 @@ export function ProductBuyPanel({
   const { add } = useCart();
   const router = useRouter();
 
-  const [variantId, setVariantId] = useState<string | null>(null);
+  const [variantId, setVariantId] = useState<string | null>(
+    null
+  );
   const [added, setAdded] = useState(false);
 
   const variants = product.variants ?? [];
-  const selected = variants.find((v) => v.id === variantId);
+  const selected = variants.find(
+    (v) => v.id === variantId
+  );
 
   // Les sacs n'ont pas besoin de sélection de variante.
   const isBag =
@@ -33,7 +39,12 @@ export function ProductBuyPanel({
     product.compare_at_price > product.price;
 
   const discountPct = onPromo
-    ? Math.round((1 - product.price / product.compare_at_price!) * 100)
+    ? Math.round(
+        (1 -
+          product.price /
+            product.compare_at_price!) *
+          100
+      )
     : 0;
 
   function handleAdd(goToCheckout: boolean) {
@@ -82,7 +93,10 @@ export function ProductBuyPanel({
         router.push("/checkout");
       } else {
         setAdded(true);
-        setTimeout(() => setAdded(false), 1800);
+
+        setTimeout(() => {
+          setAdded(false);
+        }, 1800);
       }
 
       return;
@@ -128,8 +142,40 @@ export function ProductBuyPanel({
       router.push("/checkout");
     } else {
       setAdded(true);
-      setTimeout(() => setAdded(false), 1800);
+
+      setTimeout(() => {
+        setAdded(false);
+      }, 1800);
     }
+  }
+
+  function contactSeller() {
+    /*
+     * Pour les sneakers, on demande une pointure
+     * avant d'ouvrir WhatsApp.
+     */
+    if (!isBag && !selected) {
+      return;
+    }
+
+    const size =
+      !isBag && selected
+        ? ` — Pointure ${selected.size}`
+        : "";
+
+    const message = `Bonjour, je souhaite commander ${product.name}${size} au prix de ${formatXOF(
+      product.price
+    )}. Je souhaite effectuer le paiement avec le vendeur.`;
+
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+      message
+    )}`;
+
+    window.open(
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   return (
@@ -159,13 +205,17 @@ export function ProductBuyPanel({
       {!isBag && (
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
-            <span className="eyebrow">Pointure</span>
+            <span className="eyebrow">
+              Pointure
+            </span>
 
-            {selected && selected.stock > 0 && selected.stock <= 3 && (
-              <span className="text-xs text-warn">
-                Plus que {selected.stock}
-              </span>
-            )}
+            {selected &&
+              selected.stock > 0 &&
+              selected.stock <= 3 && (
+                <span className="text-xs text-warn">
+                  Plus que {selected.stock}
+                </span>
+              )}
           </div>
 
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
@@ -205,7 +255,9 @@ export function ProductBuyPanel({
           disabled={!isBag && !selected}
           className="flex-1 rounded-pill border border-ink py-3.5 text-sm font-semibold disabled:opacity-40"
         >
-          {added ? "Ajouté ✓" : "Ajouter au panier"}
+          {added
+            ? "Ajouté ✓"
+            : "Ajouter au panier"}
         </button>
 
         <button
@@ -224,6 +276,31 @@ export function ProductBuyPanel({
           Choisissez une pointure pour continuer.
         </p>
       )}
+
+      {/* Contact vendeur pour paiement */}
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={contactSeller}
+          disabled={!isBag && !selected}
+          className="flex w-full items-center justify-center gap-2 rounded-pill border border-paper-line bg-paper-soft py-3.5 text-sm font-semibold text-ink transition-colors hover:border-ink active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span
+            className="text-base"
+            aria-hidden
+          >
+            💬
+          </span>
+
+          Contacter le vendeur pour payer
+        </button>
+
+        <p className="mt-2 text-center text-xs leading-relaxed text-ink-faint">
+          Préférez payer directement avec le vendeur ?
+          <br />
+          Contactez-nous sur WhatsApp.
+        </p>
+      </div>
 
       {/* Barre d'achat COLLANTE mobile */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-paper-line bg-paper/95 px-4 py-3 backdrop-blur-md sm:hidden">
@@ -244,7 +321,9 @@ export function ProductBuyPanel({
 
               {onPromo && (
                 <div className="tech text-xs text-ink-faint line-through">
-                  {formatXOF(product.compare_at_price!)}
+                  {formatXOF(
+                    product.compare_at_price!
+                  )}
                 </div>
               )}
             </div>
