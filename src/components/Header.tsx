@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ShieldCheck, Truck } from "lucide-react";
 import { useCart } from "@/lib/cart/store";
 
 const LINKS = [
@@ -17,6 +18,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-paper-line bg-paper/85 backdrop-blur-md">
+      {/* En-tête principal */}
       <div className="mx-auto flex max-w-app items-center gap-3 px-4 h-16">
         {/* Burger mobile */}
         <button
@@ -26,19 +28,41 @@ export function Header() {
           aria-expanded={open}
         >
           <span className="relative block h-4 w-5">
-            <span className={`absolute left-0 block h-0.5 w-5 bg-ink transition-all ${open ? "top-1.5 rotate-45" : "top-0"}`} />
-            <span className={`absolute left-0 top-1.5 block h-0.5 w-5 bg-ink transition-all ${open ? "opacity-0" : "opacity-100"}`} />
-            <span className={`absolute left-0 block h-0.5 w-5 bg-ink transition-all ${open ? "top-1.5 -rotate-45" : "top-3"}`} />
+            <span
+              className={`absolute left-0 block h-0.5 w-5 bg-ink transition-all ${
+                open ? "top-1.5 rotate-45" : "top-0"
+              }`}
+            />
+            <span
+              className={`absolute left-0 top-1.5 block h-0.5 w-5 bg-ink transition-all ${
+                open ? "opacity-0" : "opacity-100"
+              }`}
+            />
+            <span
+              className={`absolute left-0 block h-0.5 w-5 bg-ink transition-all ${
+                open ? "top-1.5 -rotate-45" : "top-3"
+              }`}
+            />
           </span>
         </button>
 
-        <Link href="/" className="display text-2xl tracking-[-0.04em] text-ink" onClick={() => setOpen(false)}>
+        <Link
+          href="/"
+          className="display text-2xl tracking-[-0.04em] text-ink"
+          onClick={() => setOpen(false)}
+        >
           vantom<span className="text-accent">.</span>
         </Link>
 
         <nav className="ml-8 hidden gap-7 text-sm font-medium text-ink-soft sm:flex">
           {LINKS.map(([href, label]) => (
-            <Link key={label} href={href} className="hover:text-ink">{label}</Link>
+            <Link
+              key={label}
+              href={href}
+              className="hover:text-ink"
+            >
+              {label}
+            </Link>
           ))}
         </nav>
 
@@ -54,6 +78,29 @@ export function Header() {
             </span>
           )}
         </Link>
+      </div>
+
+      {/* Réassurance */}
+      <div className="border-t border-paper-line bg-paper">
+        <div className="mx-auto flex max-w-app items-center justify-center gap-5 px-4 py-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
+            <ShieldCheck
+              className="h-4 w-4 shrink-0"
+              strokeWidth={2.2}
+            />
+            <span>Paiement sécurisé</span>
+          </div>
+
+          <span className="h-4 w-px bg-paper-line" />
+
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
+            <Truck
+              className="h-4 w-4 shrink-0"
+              strokeWidth={2.2}
+            />
+            <span>Livraison garantie en 24h</span>
+          </div>
+        </div>
       </div>
 
       {/* Panneau mobile */}
