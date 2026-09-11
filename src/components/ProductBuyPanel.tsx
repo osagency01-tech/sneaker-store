@@ -8,8 +8,6 @@ import { formatXOF } from "@/lib/format";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { trackFunnelEvent } from "@/lib/analytics/track";
 
-const WHATSAPP_NUMBER = "2250161853443";
-
 export function ProductBuyPanel({
   product,
 }: {
@@ -18,11 +16,15 @@ export function ProductBuyPanel({
   const { add } = useCart();
   const router = useRouter();
 
-  const [variantId, setVariantId] = useState<string | null>(null);
+  const [variantId, setVariantId] = useState<string | null>(
+    null
+  );
   const [added, setAdded] = useState(false);
 
   const variants = product.variants ?? [];
-  const selected = variants.find((v) => v.id === variantId);
+  const selected = variants.find(
+    (v) => v.id === variantId
+  );
 
   // Les sacs n'ont pas besoin de sélection de variante.
   const isBag =
@@ -36,7 +38,10 @@ export function ProductBuyPanel({
 
   const discountPct = onPromo
     ? Math.round(
-        (1 - product.price / product.compare_at_price!) * 100
+        (1 -
+          product.price /
+            product.compare_at_price!) *
+          100
       )
     : 0;
 
@@ -142,34 +147,6 @@ export function ProductBuyPanel({
     }
   }
 
-  function contactSeller() {
-    // Pour les sneakers, la pointure doit être choisie.
-    if (!isBag && !selected) {
-      return;
-    }
-
-    const size =
-      !isBag && selected
-        ? ` — Pointure ${selected.size}`
-        : "";
-
-    const message = `Bonjour, je souhaite commander ${product.name}${size} au prix de ${formatXOF(
-      product.price
-    )}. Je souhaite effectuer le paiement avec le vendeur.`;
-
-    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-      message
-    )}`;
-
-    window.open(
-      whatsappUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  }
-
-  const canPurchase = isBag || !!selected;
-
   return (
     <div>
       {/* Prix */}
@@ -241,23 +218,22 @@ export function ProductBuyPanel({
 
       {/* Actions desktop / tablette */}
       <div className="mt-6 hidden gap-3 sm:flex">
-        {/* Paiement avec vendeur */}
         <button
           type="button"
-          onClick={contactSeller}
-          disabled={!canPurchase}
-          className="flex-1 rounded-pill border border-ink bg-paper py-3.5 text-sm font-semibold text-ink transition-colors hover:bg-paper-soft active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => handleAdd(false)}
+          disabled={!isBag && !selected}
+          className="flex-1 rounded-pill border border-ink py-3.5 text-sm font-semibold disabled:opacity-40"
         >
-          <span aria-hidden>💬</span>{" "}
-          Payer avec le vendeur
+          {added
+            ? "Ajouté ✓"
+            : "Ajouter au panier"}
         </button>
 
-        {/* Paiement classique */}
         <button
           type="button"
           onClick={() => handleAdd(true)}
-          disabled={!canPurchase}
-          className="flex-1 rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper transition-opacity hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!isBag && !selected}
+          className="flex-1 rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper disabled:opacity-40"
         >
           Acheter
         </button>
@@ -271,50 +247,44 @@ export function ProductBuyPanel({
       )}
 
       {/* Barre d'achat COLLANTE mobile */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-paper-line bg-paper/95 px-4 py-3.5 backdrop-blur-md sm:hidden">
-        <div className="mx-auto max-w-app">
-          {/* Prix + pointure */}
-          <div className="mb-2.5 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-baseline gap-1.5">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-paper-line bg-paper/95 px-4 py-3 backdrop-blur-md sm:hidden">
+        <div className="mx-auto flex max-w-app items-center gap-3">
+          <div className="leading-tight">
+            <div className="eyebrow">
+              {isBag
+                ? "Prix"
+                : selected
+                  ? `Pointure ${selected.size}`
+                  : "Prix"}
+            </div>
+
+            <div className="flex items-baseline gap-1.5">
               <div className="tech text-base font-bold text-ink">
                 {formatXOF(product.price)}
               </div>
 
               {onPromo && (
                 <div className="tech text-xs text-ink-faint line-through">
-                  {formatXOF(product.compare_at_price!)}
+                  {formatXOF(
+                    product.compare_at_price!
+                  )}
                 </div>
               )}
             </div>
-
-            {!isBag && selected && (
-              <div className="eyebrow shrink-0">
-                Pointure {selected.size}
-              </div>
-            )}
           </div>
 
-          {/* Deux méthodes de paiement */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={contactSeller}
-              disabled={!canPurchase}
-              className="flex min-h-12 items-center justify-center gap-1.5 rounded-pill border border-ink bg-paper px-3 py-3 text-center text-xs font-semibold leading-tight text-ink transition-colors hover:bg-paper-soft active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <span aria-hidden>💬</span>
-              <span>Payer avec le vendeur</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleAdd(true)}
-              disabled={!canPurchase}
-              className="flex min-h-12 items-center justify-center rounded-pill bg-ink px-3 py-3 text-sm font-semibold text-paper transition-opacity hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Commander
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => handleAdd(true)}
+            disabled={!isBag && !selected}
+            className="ml-auto flex-1 rounded-pill bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-40"
+          >
+            {isBag
+              ? "Commander"
+              : !selected
+                ? "Choisir une pointure"
+                : "Commander"}
+          </button>
         </div>
       </div>
     </div>
