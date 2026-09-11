@@ -88,33 +88,6 @@ export default async function ProductPage({
       <TrackProductView productId={product.id} />
 
       {/* =================================================
-          RÉASSURANCE PRINCIPALE
-          ================================================= */}
-      <div className="mb-5 flex items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-red-600">
-        <div className="flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
-          <ShieldCheck
-            size={18}
-            strokeWidth={2.2}
-            className="shrink-0"
-          />
-
-          <span>Paiement sécurisé</span>
-        </div>
-
-        <span className="h-4 w-px bg-red-300" />
-
-        <div className="flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
-          <Truck
-            size={18}
-            strokeWidth={2.2}
-            className="shrink-0"
-          />
-
-          <span>Livraison garantie en 24h</span>
-        </div>
-      </div>
-
-      {/* =================================================
           PRODUIT
           ================================================= */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">

@@ -19,7 +19,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-paper-line bg-paper/85 backdrop-blur-md">
       {/* En-tête principal */}
-      <div className="mx-auto flex max-w-app items-center gap-3 px-4 h-16">
+      <div className="mx-auto flex h-16 max-w-app items-center gap-3 px-4">
         {/* Burger mobile */}
         <button
           onClick={() => setOpen((o) => !o)}
@@ -72,6 +72,7 @@ export function Header() {
           onClick={() => setOpen(false)}
         >
           Panier
+
           {count > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] tech">
               {count}
@@ -82,23 +83,29 @@ export function Header() {
 
       {/* Réassurance */}
       <div className="border-t border-paper-line bg-paper">
-        <div className="mx-auto flex max-w-app items-center justify-center gap-5 px-4 py-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
-            <ShieldCheck
-              className="h-4 w-4 shrink-0"
-              strokeWidth={2.2}
-            />
-            <span>Paiement sécurisé</span>
-          </div>
+        <div className="mx-auto max-w-app px-4 py-2.5">
+          <div className="flex items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-red-600">
+            <div className="flex min-w-0 items-center gap-2 text-xs font-semibold sm:text-sm">
+              <ShieldCheck
+                size={20}
+                strokeWidth={2.2}
+                className="shrink-0"
+              />
 
-          <span className="h-4 w-px bg-paper-line" />
+              <span>Paiement sécurisé</span>
+            </div>
 
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
-            <Truck
-              className="h-4 w-4 shrink-0"
-              strokeWidth={2.2}
-            />
-            <span>Livraison garantie en 24h</span>
+            <span className="h-6 w-px shrink-0 bg-red-300" />
+
+            <div className="flex min-w-0 items-center gap-2 text-xs font-semibold sm:text-sm">
+              <Truck
+                size={20}
+                strokeWidth={2.2}
+                className="shrink-0"
+              />
+
+              <span>Livraison garantie en 24h</span>
+            </div>
           </div>
         </div>
       </div>
