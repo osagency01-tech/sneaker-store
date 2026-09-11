@@ -1,7 +1,11 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Truck, ShieldCheck, RotateCcw } from "lucide-react";
+import {
+  Truck,
+  ShieldCheck,
+  RotateCcw,
+} from "lucide-react";
 import { getProductBySlug } from "@/lib/catalog";
 import { ProductBuyPanel } from "@/components/ProductBuyPanel";
 import { ProductGallery } from "@/components/ProductGallery";
@@ -46,6 +50,7 @@ export default async function ProductPage({
   }
 
   const images = product.images ?? [];
+
   const inStock = (product.variants ?? []).some(
     (v) => v.stock > 0
   );
@@ -82,6 +87,36 @@ export default async function ProductPage({
 
       <TrackProductView productId={product.id} />
 
+      {/* =================================================
+          RÉASSURANCE PRINCIPALE
+          ================================================= */}
+      <div className="mb-5 flex items-center justify-center gap-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-red-600">
+        <div className="flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
+          <ShieldCheck
+            size={18}
+            strokeWidth={2.2}
+            className="shrink-0"
+          />
+
+          <span>Paiement sécurisé</span>
+        </div>
+
+        <span className="h-4 w-px bg-red-300" />
+
+        <div className="flex items-center gap-1.5 text-xs font-semibold sm:text-sm">
+          <Truck
+            size={18}
+            strokeWidth={2.2}
+            className="shrink-0"
+          />
+
+          <span>Livraison garantie en 24h</span>
+        </div>
+      </div>
+
+      {/* =================================================
+          PRODUIT
+          ================================================= */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">
         <ProductGallery
           images={images}
@@ -110,7 +145,9 @@ export default async function ProductPage({
             <ProductBuyPanel product={product} />
           </div>
 
-          {/* Réassurance */}
+          {/* =================================================
+              RÉASSURANCE PRODUIT
+              ================================================= */}
           <div className="mt-6 grid grid-cols-1 gap-2 border-t border-paper-line pt-5 text-sm sm:grid-cols-3 sm:gap-3">
             <ReassuranceItem
               icon={<Truck />}
@@ -133,6 +170,9 @@ export default async function ProductPage({
             />
           </div>
 
+          {/* =================================================
+              DESCRIPTION
+              ================================================= */}
           {product.description && (
             <div className="mt-6 border-t border-paper-line pt-6">
               <div className="eyebrow mb-2">
@@ -145,6 +185,9 @@ export default async function ProductPage({
             </div>
           )}
 
+          {/* =================================================
+              PRIX
+              ================================================= */}
           <div className="mt-6 flex items-center justify-between border-t border-paper-line pt-4 text-sm">
             <span className="text-ink-faint">
               Prix
