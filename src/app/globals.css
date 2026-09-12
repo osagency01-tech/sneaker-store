@@ -104,5 +104,5 @@ body:has(.on-product) .mobile-cart-bar { display: none; }
 }
 
 .animate-vantom-cta {
-  animation: vantom-cta 2s ease-in-out infinite;
+  animation: vantom-cta 1.8s ease-in-out infinite;
 }

@@ -69,7 +69,7 @@ export function MobileCartBar() {
           <button
             type="button"
             onClick={handlePay}
-            className="ml-auto rounded-pill bg-green-500 px-5 py-2.5 text-sm font-semibold text-white transition-transform duration-150 animate-vantom-cta"
+            className="ml-auto rounded-pill bg-[#1F7955] px-5 py-2.5 text-sm font-semibold text-white transition-transform duration-150 animate-vantom-cta"
           >
             Payer et confirmer ma commande
           </button>
