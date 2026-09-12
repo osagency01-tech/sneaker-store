@@ -1,19 +1,42 @@
 "use client";
 
 /* ==================================================================== *
- *  Tunnel en 2 étapes, un seul écran :
- *    Étape 1 — Coordonnées : nom, WhatsApp, email (optionnel), pays.
- *              → crée la commande côté serveur (montant recalculé).
- *    Étape 2 — Paiement : opérateur + numéro de paiement (pré-rempli
- *              avec le WhatsApp), puis polling de vérification.
- *  Livraison gratuite.
+ *  Tunnel de commande
+ *
+ *  Étape 1 — Coordonnées :
+ *    nom, WhatsApp, email (optionnel), pays
+ *    → création de la commande côté serveur
+ *
+ *  Étape 2 — Paiement :
+ *    opérateur + numéro de paiement
+ *    → lancement du paiement
+ *    → vérification automatique
+ *
+ *  La barre MobileCartBar située en bas de l'écran devient le CTA
+ *  principal sur /checkout :
+ *
+ *    "Payer et confirmer ma commande · XX FCFA"
+ *
+ *  Sur les autres pages, MobileCartBar conserve "Voir le panier".
  * ==================================================================== */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Truck, CheckCircle2, XCircle } from "lucide-react";
+import {
+  ShieldCheck,
+  Truck,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
+
 import { useCart } from "@/lib/cart/store";
 import { formatXOF } from "@/lib/format";
+
 import {
   operatorsFor,
   isPlausiblePhone,
@@ -21,6 +44,7 @@ import {
   OPERATOR_LABEL,
   type Operator,
 } from "@/lib/payment/countries";
+
 import { CountrySelect } from "@/components/CountrySelect";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { trackFunnelEvent } from "@/lib/analytics/track";
@@ -28,14 +52,18 @@ import { trackFunnelEvent } from "@/lib/analytics/track";
 const POLL_MS = 5000;
 const MAX_POLLS = 60;
 
-/* -------------------------------------------------------------------- *
- *  Logos des opérateurs
- *  Fichiers placés dans :
+/* ==================================================================== *
+ *  LOGOS OPÉRATEURS
+ *
+ *  Fichiers :
  *    public/operators/wave.jpeg
  *    public/operators/orange.jpeg
  *    public/operators/mtn.jpeg
  *    public/operators/moov.jpeg
- * -------------------------------------------------------------------- */
+ *
+ *  Pas de next/image.
+ *  Pas d'optimisation Vercel.
+ * ==================================================================== */
 
 const OPERATOR_LOGO: Record<Operator, string> = {
   wave: "/operators/wave.jpeg",
@@ -45,7 +73,13 @@ const OPERATOR_LOGO: Record<Operator, string> = {
 };
 
 type Step = 1 | 2;
-type PayPhase = "form" | "pushing" | "waiting" | "paid" | "rejected";
+
+type PayPhase =
+  | "form"
+  | "pushing"
+  | "waiting"
+  | "paid"
+  | "rejected";
 
 export function CheckoutFlow() {
   const { lines, subtotal, clear } = useCart();
@@ -53,7 +87,10 @@ export function CheckoutFlow() {
 
   const [step, setStep] = useState<Step>(1);
 
-  // Étape 1
+  /* ------------------------------------------------------------------ *
+   *  Étape 1 — Coordonnées
+   * ------------------------------------------------------------------ */
+
   const [info, setInfo] = useState({
     fullName: "",
     phone: "",
@@ -64,7 +101,10 @@ export function CheckoutFlow() {
   const [creating, setCreating] = useState(false);
   const [err1, setErr1] = useState<string | null>(null);
 
-  // Résultat commande
+  /* ------------------------------------------------------------------ *
+   *  Commande créée
+   * ------------------------------------------------------------------ */
+
   const [order, setOrder] = useState<{
     orderId: string;
     externalReference: string;
@@ -72,19 +112,48 @@ export function CheckoutFlow() {
     orderNumber: string;
   } | null>(null);
 
-  // Étape 2
+  /* ------------------------------------------------------------------ *
+   *  Étape 2 — Paiement
+   * ------------------------------------------------------------------ */
+
   const ops = operatorsFor(info.country);
 
-  const [operator, setOperator] = useState<Operator | null>(null);
-  const [payPhone, setPayPhone] = useState("");
-  const [phase, setPhase] = useState<PayPhase>("form");
-  const [payMsg, setPayMsg] = useState<string | null>(null);
-  const [err2, setErr2] = useState<string | null>(null);
+  const [operator, setOperator] =
+    useState<Operator | null>(null);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [payPhone, setPayPhone] = useState("");
+
+  const [phase, setPhase] =
+    useState<PayPhase>("form");
+
+  const [payMsg, setPayMsg] =
+    useState<string | null>(null);
+
+  const [err2, setErr2] =
+    useState<string | null>(null);
+
+  const pollRef =
+    useRef<ReturnType<typeof setInterval> | null>(null);
+
   const countRef = useRef(0);
 
+  /*
+   * Référence vers la fonction pay().
+   *
+   * MobileCartBar pourra envoyer l'événement :
+   *
+   * window.dispatchEvent(new Event("vantom:pay"));
+   *
+   * uniquement sur /checkout.
+   */
+  const payRef =
+    useRef<(() => void) | null>(null);
+
   const total = subtotal;
+
+  /* ================================================================== *
+   *  POLLING
+   * ================================================================== */
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -97,22 +166,32 @@ export function CheckoutFlow() {
     return () => stopPolling();
   }, [stopPolling]);
 
-  /* ------------------------------------------------------------------ *
-   *  Tracking checkout
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   *  TRACKING CHECKOUT
+   * ================================================================== */
 
   const initiateTracked = useRef(false);
 
   useEffect(() => {
-    if (initiateTracked.current || lines.length === 0) return;
+    if (
+      initiateTracked.current ||
+      lines.length === 0
+    ) {
+      return;
+    }
 
     initiateTracked.current = true;
 
     trackPixelEvent("InitiateCheckout", {
       value: subtotal,
       currency: "XOF",
-      num_items: lines.reduce((n, l) => n + l.quantity, 0),
-      content_ids: lines.map((l) => l.productId),
+      num_items: lines.reduce(
+        (n, l) => n + l.quantity,
+        0
+      ),
+      content_ids: lines.map(
+        (l) => l.productId
+      ),
       contents: lines.map((l) => ({
         id: l.productId,
         quantity: l.quantity,
@@ -123,11 +202,38 @@ export function CheckoutFlow() {
     trackFunnelEvent("BEGIN_CHECKOUT");
   }, [lines, subtotal]);
 
-  /* ------------------------------------------------------------------ *
-   *  Panier vide
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   *  ÉCOUTE DU CTA FIXE MOBILECARTBAR
+   *
+   *  Sur /checkout, MobileCartBar déclenchera le paiement.
+   * ================================================================== */
 
-  if (lines.length === 0 && phase !== "paid") {
+  useEffect(() => {
+    const handlePayRequest = () => {
+      payRef.current?.();
+    };
+
+    window.addEventListener(
+      "vantom:pay",
+      handlePayRequest
+    );
+
+    return () => {
+      window.removeEventListener(
+        "vantom:pay",
+        handlePayRequest
+      );
+    };
+  }, []);
+
+  /* ================================================================== *
+   *  PANIER VIDE
+   * ================================================================== */
+
+  if (
+    lines.length === 0 &&
+    phase !== "paid"
+  ) {
     return (
       <div className="py-20 text-center text-ink-faint">
         Votre panier est vide.{" "}
@@ -141,185 +247,353 @@ export function CheckoutFlow() {
     );
   }
 
-  /* ------------------------------------------------------------------ *
-   *  Champs formulaire
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   *  CHAMPS
+   * ================================================================== */
 
   const set = (k: keyof typeof info) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLSelectElement
+      >
+    ) =>
       setInfo((f) => ({
         ...f,
         [k]: e.target.value,
       }));
 
-  /* ------------------------------------------------------------------ *
-   *  Création de la commande
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   *  VALIDATION NUMÉRO
+   *
+   *  Pour la Côte d'Ivoire :
+   *    - numéro national : 10 chiffres
+   *    - numéro international : +225XXXXXXXXXX
+   *
+   *  Wave n'est pas traité comme un réseau avec un préfixe
+   *  spécifique : il peut être utilisé avec différents numéros.
+   * ================================================================== */
 
-  async function submitInfo(e: React.FormEvent) {
+  function isPaymentPhoneValid(): boolean {
+    const country = findCountry(info.country);
+
+    if (!country) {
+      return false;
+    }
+
+    const digits = payPhone.replace(/\D/g, "");
+
+    if (info.country === "CI") {
+      let national = digits;
+
+      if (national.startsWith("225")) {
+        national = national.slice(3);
+      }
+
+      if (!national.startsWith("0")) {
+        national = `0${national}`;
+      }
+
+      return (
+        national.length === 10 &&
+        /^0\d{9}$/.test(national)
+      );
+    }
+
+    return isPlausiblePhone(
+      payPhone,
+      info.country
+    );
+  }
+
+  function isCustomerPhoneValid(): boolean {
+    if (info.country === "CI") {
+      const digits = info.phone.replace(
+        /\D/g,
+        ""
+      );
+
+      let national = digits;
+
+      if (national.startsWith("225")) {
+        national = national.slice(3);
+      }
+
+      if (!national.startsWith("0")) {
+        national = `0${national}`;
+      }
+
+      return (
+        national.length === 10 &&
+        /^0\d{9}$/.test(national)
+      );
+    }
+
+    return isPlausiblePhone(
+      info.phone,
+      info.country
+    );
+  }
+
+  /* ================================================================== *
+   *  CRÉATION DE LA COMMANDE
+   * ================================================================== */
+
+  async function submitInfo(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
 
     setErr1(null);
 
-    if (!isPlausiblePhone(info.phone, info.country)) {
+    if (!isCustomerPhoneValid()) {
       setErr1(
-        "Ce numéro ne semble pas correspondre au pays sélectionné. Vérifiez le nombre de chiffres."
+        info.country === "CI"
+          ? "Veuillez entrer un numéro ivoirien valide de 10 chiffres."
+          : "Ce numéro ne semble pas correspondre au pays sélectionné. Vérifiez le nombre de chiffres."
       );
+
       return;
     }
 
     setCreating(true);
 
     try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customer: {
-            fullName: info.fullName,
-            phone: info.phone,
-            email: info.email || undefined,
-            country: info.country,
+      const res = await fetch(
+        "/api/checkout",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
           },
-          lines: lines.map((l) => ({
-            variantId: l.variantId,
-            quantity: l.quantity,
-          })),
-        }),
-      });
+          body: JSON.stringify({
+            customer: {
+              fullName: info.fullName,
+              phone: info.phone,
+              email:
+                info.email || undefined,
+              country: info.country,
+            },
+            lines: lines.map((l) => ({
+              variantId: l.variantId,
+              quantity: l.quantity,
+            })),
+          }),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        setErr1(data.error ?? "Une erreur est survenue.");
+        setErr1(
+          data.error ??
+            "Une erreur est survenue."
+        );
+
         setCreating(false);
         return;
       }
 
       setOrder({
         orderId: data.orderId,
-        externalReference: data.externalReference,
-        accessToken: data.accessToken,
-        orderNumber: data.orderNumber,
+        externalReference:
+          data.externalReference,
+        accessToken:
+          data.accessToken,
+        orderNumber:
+          data.orderNumber,
       });
 
       setPayPhone(info.phone);
-      setOperator(operatorsFor(info.country)[0] ?? null);
+
+      setOperator(
+        operatorsFor(info.country)[0] ??
+          null
+      );
+
       setStep(2);
     } catch {
-      setErr1("Connexion impossible. Réessayez.");
+      setErr1(
+        "Connexion impossible. Réessayez."
+      );
     } finally {
       setCreating(false);
     }
   }
 
-  /* ------------------------------------------------------------------ *
-   *  Vérification du paiement
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   *  VÉRIFICATION DU PAIEMENT
+   * ================================================================== */
 
-  const verify = useCallback(async () => {
-    if (!order) return;
+  const verify = useCallback(
+    async () => {
+      if (!order) return;
 
-    countRef.current += 1;
+      countRef.current += 1;
 
-    try {
-      const res = await fetch("/api/payments/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          externalReference: order.externalReference,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.state === "paid") {
-        stopPolling();
-
-        setPhase("paid");
-        clear();
-
-        setTimeout(() => {
-          router.push(
-            `/order/${order.orderId}?token=${order.accessToken}&paid=1`
-          );
-        }, 1200);
-      } else if (data.state === "rejected") {
-        stopPolling();
-
-        setPhase("rejected");
-        setErr2("Le paiement a été refusé ou annulé.");
-      } else if (countRef.current >= MAX_POLLS) {
-        stopPolling();
-
-        setPhase("rejected");
-
-        setErr2(
-          "Délai dépassé. Si vous avez été débité, contactez-nous avec votre numéro de commande."
+      try {
+        const res = await fetch(
+          "/api/payments/verify",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              externalReference:
+                order.externalReference,
+            }),
+          }
         );
-      }
-    } catch {
-      // On continue malgré une coupure ponctuelle.
-    }
-  }, [order, router, clear, stopPolling]);
 
-  /* ------------------------------------------------------------------ *
-   *  Initialisation du paiement
-   * ------------------------------------------------------------------ */
+        const data = await res.json();
+
+        if (data.state === "paid") {
+          stopPolling();
+
+          setPhase("paid");
+
+          clear();
+
+          setTimeout(() => {
+            router.push(
+              `/order/${order.orderId}?token=${order.accessToken}&paid=1`
+            );
+          }, 1200);
+        } else if (
+          data.state === "rejected"
+        ) {
+          stopPolling();
+
+          setPhase("rejected");
+
+          setErr2(
+            "Le paiement a été refusé ou annulé."
+          );
+        } else if (
+          countRef.current >= MAX_POLLS
+        ) {
+          stopPolling();
+
+          setPhase("rejected");
+
+          setErr2(
+            "Délai dépassé. Si vous avez été débité, contactez-nous avec votre numéro de commande."
+          );
+        }
+      } catch {
+        // On continue malgré une coupure ponctuelle.
+      }
+    },
+    [
+      order,
+      router,
+      clear,
+      stopPolling,
+    ]
+  );
+
+  /* ================================================================== *
+   *  PAIEMENT
+   * ================================================================== */
 
   async function pay() {
-    if (!operator || !order) return;
+    if (!order) {
+      return;
+    }
+
+    if (!operator) {
+      setErr2(
+        "Veuillez sélectionner votre opérateur Mobile Money."
+      );
+      return;
+    }
+
+    if (!isPaymentPhoneValid()) {
+      setErr2(
+        info.country === "CI"
+          ? "Veuillez entrer un numéro ivoirien valide de 10 chiffres."
+          : "Veuillez vérifier le numéro de paiement."
+      );
+      return;
+    }
 
     setErr2(null);
     setPhase("pushing");
 
     try {
-      const res = await fetch("/api/payments/init", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          externalReference: order.externalReference,
-          operator,
-          phone: payPhone,
-          countryCode: info.country,
-        }),
-      });
+      const res = await fetch(
+        "/api/payments/init",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            externalReference:
+              order.externalReference,
+            operator,
+            phone: payPhone,
+            countryCode:
+              info.country,
+          }),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
         setErr2(
-          data.error ?? "Le paiement n'a pas pu être lancé."
+          data.error ??
+            "Le paiement n'a pas pu être lancé."
         );
 
         setPhase("form");
         return;
       }
 
-      if (data.kind === "redirect" && data.url) {
-        window.location.href = data.url;
+      if (
+        data.kind === "redirect" &&
+        data.url
+      ) {
+        window.location.href =
+          data.url;
         return;
       }
 
       setPayMsg(data.message);
+
       setPhase("waiting");
 
       countRef.current = 0;
 
       verify();
 
-      pollRef.current = setInterval(verify, POLL_MS);
+      pollRef.current =
+        setInterval(
+          verify,
+          POLL_MS
+        );
     } catch {
-      setErr2("Connexion impossible. Réessayez.");
+      setErr2(
+        "Connexion impossible. Réessayez."
+      );
+
       setPhase("form");
     }
   }
+
+  /*
+   * Toujours garder la dernière version de pay()
+   * accessible au bouton fixe.
+   */
+  payRef.current = pay;
+
+  /* ================================================================== *
+   *  STYLE CHAMPS
+   * ================================================================== */
 
   const field =
     "w-full rounded-xl border border-paper-line bg-paper px-4 py-3 text-base focus:border-ink focus:outline-none";
@@ -332,29 +606,63 @@ export function CheckoutFlow() {
 
       <div>
         {/* ----------------------------------------------------------- *
-         *  Progression
+         *  TITRE / CONFIANCE
          * ----------------------------------------------------------- */}
 
-        <div className="mb-6 flex items-center gap-3 text-sm">
-          <StepDot
-            n={1}
-            active={step === 1}
-            done={step > 1}
-            label="Coordonnées"
-          />
+        <div className="animate-fadeUp">
+          {/* Le titre principal est déjà affiché par checkout/page.tsx */}
 
-          <div className="h-px flex-1 bg-paper-line" />
+          <div className="mb-4">
+            <p className="text-sm leading-relaxed text-ink-soft">
+              Votre paiement confirme votre
+              commande. Choisissez votre
+              opérateur Mobile Money pour la
+              valider définitivement.
+            </p>
+          </div>
 
-          <StepDot
-            n={2}
-            active={step === 2}
-            done={phase === "paid"}
-            label="Paiement"
-          />
+          {/* ------------------------------------------------------- *
+           *  RETOUR COORDONNÉES
+           * ------------------------------------------------------- */}
+
+          {step === 2 && (
+            <button
+              type="button"
+              onClick={() => {
+                setStep(1);
+                setErr2(null);
+              }}
+              className="mb-4 text-sm text-ink-faint transition hover:text-ink"
+            >
+              ← Modifier mes coordonnées
+            </button>
+          )}
+
+          {/* ------------------------------------------------------- *
+           *  CHEMIN COORDONNÉES → PAIEMENT
+           * ------------------------------------------------------- */}
+
+          <div className="mb-5 flex items-center gap-3 text-sm">
+            <StepDot
+              n={1}
+              active={step === 1}
+              done={step > 1}
+              label="Coordonnées"
+            />
+
+            <div className="h-px flex-1 bg-paper-line" />
+
+            <StepDot
+              n={2}
+              active={step === 2}
+              done={phase === "paid"}
+              label="Paiement"
+            />
+          </div>
         </div>
 
         {/* =========================================================== *
-         *  ÉTAPE 1 — COORDONNÉES
+         *  ÉTAPE 1
          * =========================================================== */}
 
         {step === 1 && (
@@ -409,14 +717,11 @@ export function CheckoutFlow() {
               />
 
               {info.phone.length > 3 &&
-                !isPlausiblePhone(
-                  info.phone,
-                  info.country
-                ) && (
+                !isCustomerPhoneValid() && (
                   <p className="mt-1 text-xs text-warn">
-                    Ce nombre de chiffres ne correspond pas
-                    à un numéro{" "}
-                    {findCountry(info.country)?.name} habituel.
+                    {info.country === "CI"
+                      ? "Entrez un numéro ivoirien valide de 10 chiffres."
+                      : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(info.country)?.name} habituel.`}
                   </p>
                 )}
             </div>
@@ -447,88 +752,42 @@ export function CheckoutFlow() {
               disabled={creating}
               className="w-full rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper disabled:opacity-50"
             >
-              {creating ? "Un instant…" : "Suivant"}
+              {creating
+                ? "Un instant…"
+                : "Suivant"}
             </button>
           </form>
         )}
 
         {/* =========================================================== *
-         *  ÉTAPE 2 — PAIEMENT
+         *  ÉTAPE 2
          * =========================================================== */}
 
         {step === 2 && (
           <div className="animate-fadeUp">
-            {/* ------------------------------------------------------- *
-             *  FORMULAIRE DE PAIEMENT
-             * ------------------------------------------------------- */}
-
-            {(phase === "form" || phase === "pushing") && (
+            {(phase === "form" ||
+              phase === "pushing") && (
               <>
-                <div className="mb-5">
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="text-sm text-ink-faint hover:text-ink"
-                  >
-                    ← Modifier mes coordonnées
-                  </button>
-                </div>
-
                 {/* --------------------------------------------------- *
-                 *  Message de confiance
+                 *  PETIT CONTENEUR DE CONFIANCE
                  * --------------------------------------------------- */}
 
-                <div className="mb-5 rounded-2xl border border-paper-line bg-paper-soft p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
-                      <ShieldCheck
-                        size={19}
-                        strokeWidth={2.2}
-                      />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-ink">
-                        Votre commande est protégée
-                      </p>
-
-                      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-                        Votre paiement est associé à cette
-                        commande. Sa validation confirme
-                        définitivement votre commande.
-                      </p>
-                    </div>
+                <div className="mb-5 flex items-center gap-3 rounded-xl border border-paper-line bg-paper-soft px-4 py-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
+                    <ShieldCheck
+                      size={17}
+                      strokeWidth={2.2}
+                    />
                   </div>
 
-                  <div className="mt-4 grid gap-2 border-t border-paper-line pt-3 sm:grid-cols-3">
-                    <div className="flex items-center gap-2 text-xs text-ink-soft">
-                      <ShieldCheck
-                        size={16}
-                        className="shrink-0 text-ink"
-                      />
-                      <span>Paiement sécurisé</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-ink-soft">
-                      <Truck
-                        size={16}
-                        className="shrink-0 text-ink"
-                      />
-                      <span>Livraison gratuite en 24h</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-ink-soft">
-                      <CheckCircle2
-                        size={16}
-                        className="shrink-0 text-ink"
-                      />
-                      <span>Confirmation après paiement</span>
-                    </div>
-                  </div>
+                  <p className="text-sm font-medium text-ink">
+                    Votre commande et votre
+                    paiement sont protégés.
+                  </p>
                 </div>
 
                 {/* --------------------------------------------------- *
-                 *  Opérateurs
+                 *  OPÉRATEURS
                  * --------------------------------------------------- */}
 
                 <label className="eyebrow mb-2 block">
@@ -540,29 +799,41 @@ export function CheckoutFlow() {
                     <button
                       key={op}
                       type="button"
-                      onClick={() => setOperator(op)}
-                      aria-pressed={operator === op}
-                      className={`flex min-h-[58px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                      onClick={() =>
+                        setOperator(op)
+                      }
+                      aria-pressed={
+                        operator === op
+                      }
+                      className={`flex min-h-[56px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
                         operator === op
                           ? "border-ink bg-ink text-paper"
                           : "border-paper-line bg-paper hover:border-ink"
                       }`}
                     >
                       <img
-                        src={OPERATOR_LOGO[op]}
-                        alt={OPERATOR_LABEL[op]}
+                        src={
+                          OPERATOR_LOGO[op]
+                        }
+                        alt={
+                          OPERATOR_LABEL[op]
+                        }
                         className="h-9 w-9 shrink-0 rounded-full object-contain"
                       />
 
                       <span className="text-sm font-medium">
-                        {OPERATOR_LABEL[op]}
+                        {
+                          OPERATOR_LABEL[
+                            op
+                          ]
+                        }
                       </span>
                     </button>
                   ))}
                 </div>
 
                 {/* --------------------------------------------------- *
-                 *  Numéro de paiement
+                 *  NUMÉRO DE PAIEMENT
                  * --------------------------------------------------- */}
 
                 <div className="mt-4">
@@ -573,7 +844,9 @@ export function CheckoutFlow() {
                   <input
                     value={payPhone}
                     onChange={(e) =>
-                      setPayPhone(e.target.value)
+                      setPayPhone(
+                        e.target.value
+                      )
                     }
                     className={field}
                     inputMode="tel"
@@ -581,26 +854,24 @@ export function CheckoutFlow() {
                   />
 
                   {payPhone.length > 3 &&
-                  !isPlausiblePhone(
-                    payPhone,
-                    info.country
-                  ) ? (
+                  !isPaymentPhoneValid() ? (
                     <p className="mt-1 text-xs text-warn">
-                      Ce nombre de chiffres ne correspond pas
-                      à un numéro{" "}
-                      {findCountry(info.country)?.name} habituel.
+                      {info.country === "CI"
+                        ? "Le numéro ivoirien doit comporter 10 chiffres."
+                        : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(info.country)?.name} habituel.`}
                     </p>
                   ) : (
                     <p className="mt-1 text-xs text-ink-faint">
-                      Pré-rempli avec votre WhatsApp.
-                      Modifiable si le compte Mobile Money
+                      Pré-rempli avec votre
+                      WhatsApp. Modifiable si
+                      votre compte Mobile Money
                       est différent.
                     </p>
                   )}
                 </div>
 
                 {/* --------------------------------------------------- *
-                 *  Erreur
+                 *  ERREUR
                  * --------------------------------------------------- */}
 
                 {err2 && (
@@ -609,35 +880,33 @@ export function CheckoutFlow() {
                   </p>
                 )}
 
-                {/* --------------------------------------------------- *
-                 *  Bouton paiement
-                 * --------------------------------------------------- */}
+                {/*
+                 * Le bouton de paiement principal est volontairement
+                 * dans MobileCartBar sur mobile.
+                 *
+                 * Sur écran large, on conserve un bouton ici afin que
+                 * le checkout reste utilisable même si la barre mobile
+                 * n'est pas affichée.
+                 */}
 
-                <button
-                  type="button"
-                  onClick={pay}
-                  disabled={
-                    !operator ||
-                    !isPlausiblePhone(
-                      payPhone,
-                      info.country
-                    ) ||
-                    phase === "pushing"
-                  }
-                  className="mt-5 w-full rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper disabled:opacity-40"
-                >
-                  {phase === "pushing"
-                    ? "Envoi…"
-                    : `Payer et confirmer ma commande · ${formatXOF(
-                        total
-                      )}`}
-                </button>
-
-                <p className="mt-3 text-center text-xs leading-relaxed text-ink-faint">
-                  Le montant est vérifié avant le paiement.
-                  Vous recevrez une confirmation après
-                  validation.
-                </p>
+                <div className="hidden lg:block">
+                  <button
+                    type="button"
+                    onClick={pay}
+                    disabled={
+                      !operator ||
+                      !isPaymentPhoneValid() ||
+                      phase === "pushing"
+                    }
+                    className="mt-5 w-full rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper transition disabled:opacity-40"
+                  >
+                    {phase === "pushing"
+                      ? "Envoi…"
+                      : `Payer et confirmer ma commande · ${formatXOF(
+                          total
+                        )}`}
+                  </button>
+                </div>
               </>
             )}
 
@@ -671,7 +940,8 @@ export function CheckoutFlow() {
                 </div>
 
                 <p className="tech mt-4 text-xs text-ink-faint">
-                  Vérification automatique en cours…
+                  Vérification automatique
+                  en cours…
                 </p>
               </div>
             )}
@@ -738,7 +1008,7 @@ export function CheckoutFlow() {
       </div>
 
       {/* ============================================================= *
-       *  RÉCAPITULATIF COMMANDE
+       *  RÉCAPITULATIF
        * ============================================================= */}
 
       <div className="lg:sticky lg:top-20 lg:h-fit">
@@ -761,7 +1031,9 @@ export function CheckoutFlow() {
                 </span>
 
                 <span className="tech">
-                  {formatXOF(l.price * l.quantity)}
+                  {formatXOF(
+                    l.price * l.quantity
+                  )}
                 </span>
               </li>
             ))}
@@ -806,7 +1078,8 @@ export function CheckoutFlow() {
               size={15}
               className="shrink-0"
             />
-            Montant recalculé et vérifié côté serveur.
+            Montant recalculé et vérifié côté
+            serveur.
           </p>
         </div>
       </div>
@@ -832,7 +1105,7 @@ function StepDot({
   return (
     <div className="flex items-center gap-2">
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
           done
             ? "bg-ok text-paper"
             : active

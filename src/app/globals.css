@@ -75,3 +75,31 @@ body {
 /* Sur la fiche produit, la barre d'achat produit remplace la barre panier
    globale sur mobile (évite le doublon en bas d'écran). */
 body:has(.on-product) .mobile-cart-bar { display: none; }
+
+@keyframes vantom-cta {
+  0%,
+  90%,
+  100% {
+    transform: translateX(0);
+  }
+
+  92% {
+    transform: translateX(-2px);
+  }
+
+  94% {
+    transform: translateX(2px);
+  }
+
+  96% {
+    transform: translateX(-2px);
+  }
+
+  98% {
+    transform: translateX(2px);
+  }
+}
+
+.animate-vantom-cta {
+  animation: vantom-cta 4s ease-in-out infinite;
+}
