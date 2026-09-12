@@ -78,28 +78,32 @@ body:has(.on-product) .mobile-cart-bar { display: none; }
 
 @keyframes vantom-cta {
   0%,
-  90%,
+  70%,
   100% {
     transform: translateX(0);
   }
 
-  92% {
-    transform: translateX(-2px);
+  73% {
+    transform: translateX(-3px);
   }
 
-  94% {
-    transform: translateX(2px);
+  76% {
+    transform: translateX(3px);
   }
 
-  96% {
-    transform: translateX(-2px);
+  79% {
+    transform: translateX(-3px);
   }
 
-  98% {
-    transform: translateX(2px);
+  82% {
+    transform: translateX(3px);
+  }
+
+  85% {
+    transform: translateX(0);
   }
 }
 
 .animate-vantom-cta {
-  animation: vantom-cta 4s ease-in-out infinite;
+  animation: vantom-cta 1s ease-in-out infinite;
 }

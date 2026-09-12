@@ -12,12 +12,9 @@
  *    → lancement du paiement
  *    → vérification automatique
  *
- *  La barre MobileCartBar située en bas de l'écran devient le CTA
- *  principal sur /checkout :
- *
- *    "Payer et confirmer ma commande · XX FCFA"
- *
- *  Sur les autres pages, MobileCartBar conserve "Voir le panier".
+ *  MobileCartBar :
+ *    Étape 1 → "Voir le panier"
+ *    Étape 2 → "Payer et confirmer ma commande"
  * ==================================================================== */
 
 import {
@@ -54,15 +51,6 @@ const MAX_POLLS = 60;
 
 /* ==================================================================== *
  *  LOGOS OPÉRATEURS
- *
- *  Fichiers :
- *    public/operators/wave.jpeg
- *    public/operators/orange.jpeg
- *    public/operators/mtn.jpeg
- *    public/operators/moov.jpeg
- *
- *  Pas de next/image.
- *  Pas d'optimisation Vercel.
  * ==================================================================== */
 
 const OPERATOR_LOGO: Record<Operator, string> = {
@@ -139,17 +127,30 @@ export function CheckoutFlow() {
 
   /*
    * Référence vers la fonction pay().
-   *
-   * MobileCartBar pourra envoyer l'événement :
-   *
-   * window.dispatchEvent(new Event("vantom:pay"));
-   *
-   * uniquement sur /checkout.
+   * MobileCartBar déclenche cette fonction via
+   * l'événement "vantom:pay".
    */
   const payRef =
     useRef<(() => void) | null>(null);
 
   const total = subtotal;
+
+  /* ================================================================== *
+   *  INFORMER MOBILECARTBAR DE L'ÉTAPE
+   *
+   *  Étape 1 → Voir le panier
+   *  Étape 2 → Payer et confirmer ma commande
+   * ================================================================== */
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("vantom:checkout-step", {
+        detail: {
+          payment: step === 2,
+        },
+      })
+    );
+  }, [step]);
 
   /* ================================================================== *
    *  POLLING
@@ -203,13 +204,16 @@ export function CheckoutFlow() {
   }, [lines, subtotal]);
 
   /* ================================================================== *
-   *  ÉCOUTE DU CTA FIXE MOBILECARTBAR
-   *
-   *  Sur /checkout, MobileCartBar déclenchera le paiement.
+   *  ÉCOUTE DU CTA FIXE
    * ================================================================== */
 
   useEffect(() => {
     const handlePayRequest = () => {
+      /*
+       * Même si un événement est envoyé par erreur pendant
+       * l'étape 1, pay() vérifiera qu'une commande existe
+       * et qu'un opérateur/numéro est valide.
+       */
       payRef.current?.();
     };
 
@@ -263,14 +267,7 @@ export function CheckoutFlow() {
       }));
 
   /* ================================================================== *
-   *  VALIDATION NUMÉRO
-   *
-   *  Pour la Côte d'Ivoire :
-   *    - numéro national : 10 chiffres
-   *    - numéro international : +225XXXXXXXXXX
-   *
-   *  Wave n'est pas traité comme un réseau avec un préfixe
-   *  spécifique : il peut être utilisé avec différents numéros.
+   *  VALIDATION NUMÉRO DE PAIEMENT
    * ================================================================== */
 
   function isPaymentPhoneValid(): boolean {
@@ -289,10 +286,10 @@ export function CheckoutFlow() {
         national = national.slice(3);
       }
 
-      if (!national.startsWith("0")) {
-        national = `0${national}`;
-      }
-
+      /*
+       * Validation stricte :
+       * 10 chiffres nationaux, commençant par 0.
+       */
       return (
         national.length === 10 &&
         /^0\d{9}$/.test(national)
@@ -304,6 +301,10 @@ export function CheckoutFlow() {
       info.country
     );
   }
+
+  /* ================================================================== *
+   *  VALIDATION NUMÉRO CLIENT
+   * ================================================================== */
 
   function isCustomerPhoneValid(): boolean {
     if (info.country === "CI") {
@@ -318,10 +319,10 @@ export function CheckoutFlow() {
         national = national.slice(3);
       }
 
-      if (!national.startsWith("0")) {
-        national = `0${national}`;
-      }
-
+      /*
+       * Validation stricte :
+       * 10 chiffres nationaux, commençant par 0.
+       */
       return (
         national.length === 10 &&
         /^0\d{9}$/.test(national)
@@ -499,6 +500,14 @@ export function CheckoutFlow() {
    * ================================================================== */
 
   async function pay() {
+    /*
+     * Le CTA fixe ne doit fonctionner que lorsque
+     * le client est réellement à l'étape 2.
+     */
+    if (step !== 2) {
+      return;
+    }
+
     if (!order) {
       return;
     }
@@ -606,63 +615,47 @@ export function CheckoutFlow() {
 
       <div>
         {/* ----------------------------------------------------------- *
-         *  TITRE / CONFIANCE
+         *  RETOUR COORDONNÉES
          * ----------------------------------------------------------- */}
 
-        <div className="animate-fadeUp">
-          {/* Le titre principal est déjà affiché par checkout/page.tsx */}
+        {step === 2 && (
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setErr2(null);
+              setPhase("form");
+            }}
+            className="mb-4 text-sm text-ink-faint transition hover:text-ink"
+          >
+            ← Modifier mes coordonnées
+          </button>
+        )}
 
-          <div className="mb-4">
-            <p className="text-sm leading-relaxed text-ink-soft">
-              Votre paiement confirme votre
-              commande. Choisissez votre
-              opérateur Mobile Money pour la
-              valider définitivement.
-            </p>
-          </div>
+        {/* ----------------------------------------------------------- *
+         *  CHEMIN COORDONNÉES → PAIEMENT
+         * ----------------------------------------------------------- */}
 
-          {/* ------------------------------------------------------- *
-           *  RETOUR COORDONNÉES
-           * ------------------------------------------------------- */}
+        <div className="mb-5 flex items-center gap-3 text-sm">
+          <StepDot
+            n={1}
+            active={step === 1}
+            done={step > 1}
+            label="Coordonnées"
+          />
 
-          {step === 2 && (
-            <button
-              type="button"
-              onClick={() => {
-                setStep(1);
-                setErr2(null);
-              }}
-              className="mb-4 text-sm text-ink-faint transition hover:text-ink"
-            >
-              ← Modifier mes coordonnées
-            </button>
-          )}
+          <div className="h-px flex-1 bg-paper-line" />
 
-          {/* ------------------------------------------------------- *
-           *  CHEMIN COORDONNÉES → PAIEMENT
-           * ------------------------------------------------------- */}
-
-          <div className="mb-5 flex items-center gap-3 text-sm">
-            <StepDot
-              n={1}
-              active={step === 1}
-              done={step > 1}
-              label="Coordonnées"
-            />
-
-            <div className="h-px flex-1 bg-paper-line" />
-
-            <StepDot
-              n={2}
-              active={step === 2}
-              done={phase === "paid"}
-              label="Paiement"
-            />
-          </div>
+          <StepDot
+            n={2}
+            active={step === 2}
+            done={phase === "paid"}
+            label="Paiement"
+          />
         </div>
 
         {/* =========================================================== *
-         *  ÉTAPE 1
+         *  ÉTAPE 1 — COORDONNÉES
          * =========================================================== */}
 
         {step === 1 && (
@@ -760,7 +753,7 @@ export function CheckoutFlow() {
         )}
 
         {/* =========================================================== *
-         *  ÉTAPE 2
+         *  ÉTAPE 2 — PAIEMENT
          * =========================================================== */}
 
         {step === 2 && (
@@ -769,7 +762,7 @@ export function CheckoutFlow() {
               phase === "pushing") && (
               <>
                 {/* --------------------------------------------------- *
-                 *  PETIT CONTENEUR DE CONFIANCE
+                 *  PROTECTION
                  * --------------------------------------------------- */}
 
                 <div className="mb-5 flex items-center gap-3 rounded-xl border border-paper-line bg-paper-soft px-4 py-3">
@@ -781,8 +774,7 @@ export function CheckoutFlow() {
                   </div>
 
                   <p className="text-sm font-medium text-ink">
-                    Votre commande et votre
-                    paiement sont protégés.
+                    Votre commande et votre paiement sont protégés.
                   </p>
                 </div>
 
@@ -862,10 +854,7 @@ export function CheckoutFlow() {
                     </p>
                   ) : (
                     <p className="mt-1 text-xs text-ink-faint">
-                      Pré-rempli avec votre
-                      WhatsApp. Modifiable si
-                      votre compte Mobile Money
-                      est différent.
+                      Pré-rempli avec votre WhatsApp. Modifiable si votre compte Mobile Money est différent.
                     </p>
                   )}
                 </div>
@@ -880,14 +869,9 @@ export function CheckoutFlow() {
                   </p>
                 )}
 
-                {/*
-                 * Le bouton de paiement principal est volontairement
-                 * dans MobileCartBar sur mobile.
-                 *
-                 * Sur écran large, on conserve un bouton ici afin que
-                 * le checkout reste utilisable même si la barre mobile
-                 * n'est pas affichée.
-                 */}
+                {/* --------------------------------------------------- *
+                 *  BOUTON DESKTOP
+                 * --------------------------------------------------- */}
 
                 <div className="hidden lg:block">
                   <button
@@ -898,7 +882,7 @@ export function CheckoutFlow() {
                       !isPaymentPhoneValid() ||
                       phase === "pushing"
                     }
-                    className="mt-5 w-full rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper transition disabled:opacity-40"
+                    className="mt-5 w-full rounded-pill bg-emerald-600 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     {phase === "pushing"
                       ? "Envoi…"
@@ -934,14 +918,12 @@ export function CheckoutFlow() {
                   />
 
                   <span>
-                    Votre paiement est vérifié
-                    automatiquement.
+                    Votre paiement est vérifié automatiquement.
                   </span>
                 </div>
 
                 <p className="tech mt-4 text-xs text-ink-faint">
-                  Vérification automatique
-                  en cours…
+                  Vérification automatique en cours…
                 </p>
               </div>
             )}
@@ -1078,8 +1060,7 @@ export function CheckoutFlow() {
               size={15}
               className="shrink-0"
             />
-            Montant recalculé et vérifié côté
-            serveur.
+            Montant recalculé et vérifié côté serveur.
           </p>
         </div>
       </div>
