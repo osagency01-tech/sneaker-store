@@ -23,7 +23,9 @@ export async function generateMetadata({
   const product = await getProductBySlug(params.slug);
 
   if (!product) {
-    return { title: "Modèle introuvable" };
+    return {
+      title: "Modèle introuvable",
+    };
   }
 
   return {
@@ -54,6 +56,10 @@ export default async function ProductPage({
   const inStock = (product.variants ?? []).some(
     (v) => v.stock > 0
   );
+
+  const onPromo =
+    !!product.compare_at_price &&
+    product.compare_at_price > product.price;
 
   // Données structurées Product (SEO)
   const jsonLd = {
@@ -90,13 +96,18 @@ export default async function ProductPage({
       {/* =================================================
           PRODUIT
           ================================================= */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">
+      <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
+        {/* Galerie + compte à rebours */}
         <ProductGallery
-          images={images}
+          images={product.images ?? []}
           name={product.name}
+          productId={product.id}
+          onPromo={onPromo}
         />
 
-        {/* Infos + achat */}
+        {/* =================================================
+            INFOS + ACHAT
+            ================================================= */}
         <div className="min-w-0 sm:pt-2">
           {product.brand && (
             <div className="eyebrow">
@@ -171,12 +182,11 @@ export default async function ProductPage({
                 {formatXOF(product.price)}
               </span>
 
-              {!!product.compare_at_price &&
-                product.compare_at_price > product.price && (
-                  <span className="tech text-xs text-ink-faint line-through">
-                    {formatXOF(product.compare_at_price)}
-                  </span>
-                )}
+              {onPromo && (
+                <span className="tech text-xs text-ink-faint line-through">
+                  {formatXOF(product.compare_at_price!)}
+                </span>
+              )}
             </span>
           </div>
         </div>

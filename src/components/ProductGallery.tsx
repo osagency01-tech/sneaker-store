@@ -3,13 +3,36 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { ProductImage } from "@/types/db";
+import { PromoCountdown } from "@/components/PromoCountdown";
 
-export function ProductGallery({ images, name }: { images: ProductImage[]; name: string }) {
+export function ProductGallery({
+  images,
+  name,
+  productId,
+  onPromo,
+}: {
+  images: ProductImage[];
+  name: string;
+  productId: string;
+  onPromo: boolean;
+}) {
   const [active, setActive] = useState(0);
+
   const main = images[active];
 
   return (
     <div className="min-w-0">
+      {/* Compte à rebours promo */}
+      {onPromo && (
+        <div className="mb-1">
+          <PromoCountdown
+            productId={productId}
+            onPromo={onPromo}
+          />
+        </div>
+      )}
+
+      {/* Image principale */}
       <div className="relative aspect-square overflow-hidden rounded-card bg-gradient-to-b from-paper-soft to-white">
         {main ? (
           <Image
@@ -21,22 +44,35 @@ export function ProductGallery({ images, name }: { images: ProductImage[]; name:
             className="object-contain p-6"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-ink-faint">—</div>
+          <div className="flex h-full items-center justify-center text-ink-faint">
+            —
+          </div>
         )}
       </div>
 
+      {/* Miniatures */}
       {images.length > 1 && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {images.map((img, i) => (
             <button
               key={img.id}
+              type="button"
               onClick={() => setActive(i)}
               className={`relative aspect-square w-16 shrink-0 overflow-hidden rounded-xl bg-paper-soft transition-all sm:w-[76px] ${
-                i === active ? "ring-2 ring-ink" : "opacity-70 hover:opacity-100"
+                i === active
+                  ? "ring-2 ring-ink"
+                  : "opacity-70 hover:opacity-100"
               }`}
               aria-label={`Voir l'image ${i + 1}`}
+              aria-pressed={i === active}
             >
-              <Image src={img.url} alt="" fill sizes="80px" className="object-contain p-2" />
+              <Image
+                src={img.url}
+                alt=""
+                fill
+                sizes="80px"
+                className="object-contain p-2"
+              />
             </button>
           ))}
         </div>
