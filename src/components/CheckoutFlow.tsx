@@ -1065,58 +1065,56 @@ export function CheckoutFlow() {
                   )}
                 </div>
 
-                {/* ================================================== *
-                 * OTP
-                 * ================================================== */}
+                   {/* ================================================== *
+ * OTP
+ * ================================================== */}
 
-                {otpRequired && (
-                  <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
-                    <div className="text-sm font-semibold text-ink">
-                      Vérification Orange
-                    </div>
+{otpRequired && (
+  <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+    <div className="text-sm font-semibold text-ink">
+      Vérification Orange
+    </div>
 
-                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-                      {otpUssdCode ? (
-                        <>
-                          Composez{" "}
-                          <span className="font-bold text-ink">
-                            {otpUssdCode}
-                          </span>{" "}
-                          sur votre téléphone pour recevoir votre code OTP.
-                        </>
-                      ) : (
-                        "Composez le code USSD de votre opérateur pour recevoir votre code OTP."
-                      )}
-                    </p>
+    {otpUssdCode ? (
+      <div className="mt-3 rounded-xl border border-orange-200 bg-white p-3 text-center">
+        <p className="text-xs leading-relaxed text-ink-soft">
+          Pour recevoir votre code OTP, composez ce code sur votre téléphone :
+        </p>
 
-                    <label className="eyebrow mt-3 mb-1.5 block">
-                      Code OTP
-                    </label>
+        <p className="mt-2 text-xl font-bold tracking-wider text-ink">
+          {otpUssdCode}
+        </p>
 
-                    <input
-                      value={
-                        otpCode
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setOtpCode(
-                          e.target
-                            .value
-                        )
-                      }
-                      className={field}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      placeholder="Entrez votre code OTP"
-                      maxLength={20}
-                    />
+        <p className="mt-2 text-[11px] leading-relaxed text-ink-soft">
+          Vous recevrez ensuite votre code OTP par SMS.
+          Entrez-le ci-dessous pour confirmer votre paiement.
+        </p>
+      </div>
+    ) : (
+      <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+        Préparez votre téléphone pour recevoir votre code OTP.
+      </p>
+    )}
 
-                    <p className="mt-1.5 text-[11px] text-ink-faint">
-                      Le code OTP est utilisé uniquement pour valider cette demande de paiement.
-                    </p>
-                  </div>
-                )}
+    <label className="eyebrow mt-3 mb-1.5 block">
+      Code OTP
+    </label>
+
+    <input
+      value={otpCode}
+      onChange={(e) => setOtpCode(e.target.value)}
+      className={field}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      placeholder="Entrez votre code OTP"
+      maxLength={20}
+    />
+
+    <p className="mt-1.5 text-[11px] leading-relaxed text-ink-faint">
+      Le code OTP est utilisé uniquement pour valider cette demande de paiement.
+    </p>
+  </div>
+)}
 
                 {/* -------------------------------------------------- *
                  * MESSAGE

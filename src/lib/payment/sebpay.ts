@@ -40,6 +40,21 @@ const OPERATOR_TO_SEBPAY: Record<
   moov: "moov",
 };
 
+/* ==================================================================== *
+ *  FALLBACK USSD
+ *
+ *  Utilisé uniquement si SebPay signale qu'un OTP est requis mais
+ *  ne renvoie pas le code USSD dans /operators.
+ *
+ *  Le code dynamique renvoyé par SebPay reste prioritaire.
+ * ==================================================================== */
+
+const DEFAULT_USSD_CODES: Partial<
+  Record<Operator, string>
+> = {
+  orange: "*144*4*4#",
+};
+
 const PAID = [
   "approved",
   "success",
@@ -127,24 +142,28 @@ function isOtpRequiredError(
     data?.code ??
       data?.error_code ??
       data?.data?.code ??
+      data?.error?.code ??
       ""
   ).toUpperCase();
 
   const message = String(
     data?.message ??
       data?.error ??
+      data?.data?.message ??
+      data?.detail ??
       ""
   ).toLowerCase();
 
   return (
     code === "OTP_REQUIRED" ||
     message.includes("otp requis") ||
-    message.includes("otp required")
+    message.includes("otp required") ||
+    message.includes("code otp requis")
   );
 }
 
 /* ==================================================================== *
- *  RECHERCHE DES INFORMATIONS OPÉRATEUR
+ *  INFORMATIONS OPÉRATEUR
  * ==================================================================== */
 
 type SebpayOperator = {
@@ -159,9 +178,14 @@ type SebpayOperator = {
 function extractOperators(
   data: any
 ): SebpayOperator[] {
+  /*
+   * SebPay peut renvoyer les opérateurs sous différentes formes.
+   * On essaie les structures les plus courantes.
+   */
+
   const candidates = [
-    data?.data,
     data?.data?.operators,
+    data?.data,
     data?.operators,
   ];
 
@@ -169,6 +193,23 @@ function extractOperators(
     if (Array.isArray(candidate)) {
       return candidate;
     }
+  }
+
+  /*
+   * Cas où data.data est directement un objet représentant
+   * un opérateur unique.
+   */
+  if (
+    data?.data &&
+    typeof data.data === "object" &&
+    !Array.isArray(data.data) &&
+    (
+      "slug" in data.data ||
+      "operator" in data.data ||
+      "ussd_code" in data.data
+    )
+  ) {
+    return [data.data];
   }
 
   return [];
@@ -211,6 +252,12 @@ export class SebpayProvider
     status: number;
     data: any;
   }> {
+    /*
+     * ================================================================
+     * RELAIS IP FIXE
+     * ================================================================
+     */
+
     if (RELAY_URL) {
       const res = await fetch(
         RELAY_URL,
@@ -229,7 +276,8 @@ export class SebpayProvider
               this.cfg.publicKey,
             secretKey:
               this.cfg.secretKey,
-            body: body ?? null,
+            body:
+              body ?? null,
           }),
         }
       );
@@ -245,6 +293,12 @@ export class SebpayProvider
         data,
       };
     }
+
+    /*
+     * ================================================================
+     * APPEL DIRECT SEBPAY
+     * ================================================================
+     */
 
     const res = await fetch(
       `${BASE_URL}${path}`,
@@ -274,7 +328,7 @@ export class SebpayProvider
    *  INFORMATIONS OTP
    *
    *  SebPay recommande GET /operators pour savoir dynamiquement
-   *  si un opérateur nécessite un OTP.
+   *  si un opérateur nécessite un OTP et quel code USSD utiliser.
    * ================================================================== */
 
   private async getOtpInformation(
@@ -293,6 +347,12 @@ export class SebpayProvider
       );
 
       if (!result.ok) {
+        console.error(
+          "SebPay /operators error:",
+          result.status,
+          result.data
+        );
+
         return {
           required: false,
           ussdCode: null,
@@ -303,38 +363,66 @@ export class SebpayProvider
         extractOperators(result.data);
 
       const wantedOperator =
-        OPERATOR_TO_SEBPAY[operator].toLowerCase();
+        (
+          OPERATOR_TO_SEBPAY[
+            operator
+          ] ?? ""
+        ).toLowerCase();
 
-      const found = operators.find(
-        (item) => {
-          const slug = String(
-            item.slug ??
-              item.operator ??
-              ""
-          ).toLowerCase();
+      const found =
+        operators.find(
+          (item) => {
+            const slug =
+              String(
+                item.slug ??
+                  item.operator ??
+                  item.name ??
+                  ""
+              )
+                .trim()
+                .toLowerCase();
 
-          return (
-            slug === wantedOperator
-          );
-        }
-      );
+            return (
+              slug === wantedOperator
+            );
+          }
+        );
 
       if (!found) {
+        console.warn(
+          "SebPay opérateur introuvable dans /operators:",
+          {
+            countryCode,
+            operator,
+            wantedOperator,
+            operators,
+          }
+        );
+
         return {
           required: false,
           ussdCode: null,
         };
       }
 
+      const ussdCode =
+        typeof found.ussd_code ===
+          "string" &&
+        found.ussd_code.trim()
+          ? found.ussd_code.trim()
+          : null;
+
       return {
         required:
           found.otp_required === true,
-
-        ussdCode:
-          found.ussd_code ??
-          null,
+        ussdCode,
       };
-    } catch {
+    } catch (error) {
+      console.error(
+        "SebPay getOtpInformation exception:",
+        error
+      );
+
       return {
         required: false,
         ussdCode: null,
@@ -349,75 +437,126 @@ export class SebpayProvider
   async createCheckout(
     input: CheckoutInput
   ): Promise<CheckoutResult> {
+    const sebpayOperator =
+      OPERATOR_TO_SEBPAY[
+        input.operator
+      ] ?? "mtn";
+
     const payload: Record<
       string,
       unknown
     > = {
       amount: input.amount,
       currency: "XOF",
-      country: input.countryCode,
+      country:
+        input.countryCode,
       phone: input.phone,
       operator:
-        OPERATOR_TO_SEBPAY[
-          input.operator
-        ] ?? "mtn",
+        sebpayOperator,
       external_reference:
         input.externalReference,
-      description: input.description,
+      description:
+        input.description,
     };
 
     /*
-     * On ajoute otp_code uniquement lorsqu'il
-     * est réellement fourni.
+     * On ajoute otp_code uniquement lorsqu'il est réellement fourni.
+     *
+     * Première tentative :
+     *   pas de otp_code
+     *
+     * Deuxième tentative :
+     *   otp_code reçu par l'utilisateur
      */
-    if (input.otpCode) {
+    if (
+      input.otpCode &&
+      input.otpCode.trim()
+    ) {
       payload.otp_code =
-        input.otpCode;
+        input.otpCode.trim();
     }
 
     try {
-      const { ok, data } =
-        await this.call(
-          "POST",
-          "/collections",
-          payload
-        );
+      const {
+        ok,
+        data,
+      } = await this.call(
+        "POST",
+        "/collections",
+        payload
+      );
 
       if (!ok) {
-        /*
-         * ------------------------------------------------------------
+        /* ============================================================
          * OTP REQUIS
-         * ------------------------------------------------------------
-         */
+         * ============================================================ */
 
         if (
           isOtpRequiredError(data)
         ) {
+          /*
+           * On demande d'abord à SebPay le code USSD officiel
+           * pour cet opérateur.
+           */
           const otpInfo =
             await this.getOtpInformation(
               input.countryCode,
               input.operator
             );
 
+          /*
+           * Si SebPay ne renvoie pas de code USSD,
+           * on utilise notre fallback pour Orange.
+           *
+           * Le code SebPay reste TOUJOURS prioritaire.
+           */
+          const ussdCode =
+            otpInfo.ussdCode ||
+            DEFAULT_USSD_CODES[
+              input.operator
+            ] ||
+            null;
+
+          console.log(
+            "SebPay OTP requis:",
+            {
+              country:
+                input.countryCode,
+              operator:
+                input.operator,
+              ussdCode,
+              dynamic:
+                otpInfo.ussdCode,
+            }
+          );
+
           return {
-            kind: "otp_required",
+            kind:
+              "otp_required",
             reference:
               input.externalReference,
-            providerTxId: null,
-            ussdCode:
-              otpInfo.ussdCode,
+            providerTxId:
+              null,
+            ussdCode,
             message:
-              otpInfo.ussdCode
-                ? `Composez ${otpInfo.ussdCode} sur votre téléphone pour recevoir votre code OTP.`
-                : "Composez le code USSD de votre opérateur pour recevoir votre code OTP.",
+              ussdCode
+                ? `Pour recevoir votre code OTP, composez ${ussdCode} sur votre téléphone.`
+                : "Un code OTP est requis pour ce paiement. Veuillez suivre les instructions de votre opérateur.",
           };
         }
 
-        const raw = String(
-          data?.message ||
-            data?.error ||
-            ""
-        );
+        /* ============================================================
+         * AUTRE ERREUR
+         * ============================================================ */
+
+        const raw =
+          String(
+            data?.message ||
+              data?.error ||
+              data?.data?.message ||
+              data?.detail ||
+              ""
+          );
 
         console.error(
           "SebPay createCheckout error:",
@@ -430,42 +569,56 @@ export class SebpayProvider
         return {
           kind: "error",
           message:
-            humanizeSebpayError(raw),
+            humanizeSebpayError(
+              raw
+            ),
         };
       }
 
+      /* ============================================================
+       * SUCCÈS
+       * ============================================================ */
+
       const txId =
-        data?.data?.transaction_id ??
+        data?.data
+          ?.transaction_id ??
+        data?.transaction_id ??
         null;
 
       const providerLink =
-        data?.data?.provider_link;
+        data?.data
+          ?.provider_link ??
+        data?.provider_link;
 
-      /*
-       * WAVE
-       */
+      /* ============================================================
+       * WAVE / REDIRECTION
+       * ============================================================ */
 
       if (providerLink) {
         return {
           kind: "redirect",
           reference:
             input.externalReference,
-          providerTxId: txId,
-          url: providerLink,
+          providerTxId:
+            txId,
+          url:
+            providerLink,
           message:
             "Vous allez être redirigé vers Wave pour valider votre paiement.",
         };
       }
 
-      /*
+      /* ============================================================
        * PUSH USSD / NOTIFICATION
-       */
+       * ============================================================ */
 
       return {
-        kind: "ussd_push",
+        kind:
+          "ussd_push",
         reference:
           input.externalReference,
-        providerTxId: txId,
+        providerTxId:
+          txId,
         message:
           "Un message vient d'être envoyé sur votre téléphone. Composez votre code Mobile Money pour valider le paiement.",
       };
@@ -491,27 +644,34 @@ export class SebpayProvider
     externalReference: string
   ): Promise<PaymentState> {
     try {
-      const { ok, data } =
-        await this.call(
-          "GET",
-          `/collections/${encodeURIComponent(
-            externalReference
-          )}`
-        );
+      const {
+        ok,
+        data,
+      } = await this.call(
+        "GET",
+        `/collections/${encodeURIComponent(
+          externalReference
+        )}`
+      );
 
       if (!ok) {
         return "pending";
       }
 
-      const s = String(
-        data?.data?.status || ""
-      ).toLowerCase();
+      const s =
+        String(
+          data?.data?.status ??
+            data?.status ??
+            ""
+        ).toLowerCase();
 
       if (PAID.includes(s)) {
         return "paid";
       }
 
-      if (REJECTED.includes(s)) {
+      if (
+        REJECTED.includes(s)
+      ) {
         return "rejected";
       }
 
