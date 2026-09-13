@@ -1,32 +1,16 @@
 "use client";
 
-/* ==================================================================== *
- *  Tunnel de commande
- *
- *  Étape 1 — Coordonnées :
- *    nom, WhatsApp, email (optionnel), pays
- *    → création de la commande côté serveur
- *
- *  Étape 2 — Paiement :
- *    opérateur + numéro de paiement
- *    → lancement du paiement
- *    → vérification automatique
- *
- *  MobileCartBar :
- *    Étape 1 → "Voir le panier"
- *    Étape 2 → "Payer et confirmer ma commande"
- * ==================================================================== */
-
 import {
   useState,
   useEffect,
   useRef,
   useCallback,
 } from "react";
+
 import { useRouter } from "next/navigation";
+
 import {
   ShieldCheck,
-  Truck,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -50,10 +34,13 @@ const POLL_MS = 5000;
 const MAX_POLLS = 60;
 
 /* ==================================================================== *
- *  LOGOS OPÉRATEURS
+ * LOGOS
  * ==================================================================== */
 
-const OPERATOR_LOGO: Record<Operator, string> = {
+const OPERATOR_LOGO: Record<
+  Operator,
+  string
+> = {
   wave: "/operators/wave.jpeg",
   orange: "/operators/orange.jpeg",
   mtn: "/operators/mtn.jpeg",
@@ -70,46 +57,62 @@ type PayPhase =
   | "rejected";
 
 export function CheckoutFlow() {
-  const { lines, subtotal, clear } = useCart();
+  const {
+    lines,
+    subtotal,
+    clear,
+  } = useCart();
+
   const router = useRouter();
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] =
+    useState<Step>(1);
 
-  /* ------------------------------------------------------------------ *
-   *  Étape 1 — Coordonnées
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   * COORDONNÉES
+   * ================================================================== */
 
-  const [info, setInfo] = useState({
-    fullName: "",
-    phone: "",
-    email: "",
-    country: "CI",
-  });
+  const [info, setInfo] =
+    useState({
+      fullName: "",
+      phone: "",
+      email: "",
+      country: "CI",
+    });
 
-  const [creating, setCreating] = useState(false);
-  const [err1, setErr1] = useState<string | null>(null);
+  const [creating, setCreating] =
+    useState(false);
 
-  /* ------------------------------------------------------------------ *
-   *  Commande créée
-   * ------------------------------------------------------------------ */
+  const [err1, setErr1] =
+    useState<string | null>(null);
 
-  const [order, setOrder] = useState<{
-    orderId: string;
-    externalReference: string;
-    accessToken: string;
-    orderNumber: string;
-  } | null>(null);
+  /* ================================================================== *
+   * COMMANDE
+   * ================================================================== */
 
-  /* ------------------------------------------------------------------ *
-   *  Étape 2 — Paiement
-   * ------------------------------------------------------------------ */
+  const [order, setOrder] =
+    useState<{
+      orderId: string;
+      externalReference: string;
+      accessToken: string;
+      orderNumber: string;
+    } | null>(null);
 
-  const ops = operatorsFor(info.country);
+  /* ================================================================== *
+   * PAIEMENT
+   * ================================================================== */
+
+  const ops = operatorsFor(
+    info.country
+  );
 
   const [operator, setOperator] =
-    useState<Operator | null>(null);
+    useState<Operator | null>(
+      null
+    );
 
-  const [payPhone, setPayPhone] = useState("");
+  const [payPhone, setPayPhone] =
+    useState("");
 
   const [phase, setPhase] =
     useState<PayPhase>("form");
@@ -120,58 +123,77 @@ export function CheckoutFlow() {
   const [err2, setErr2] =
     useState<string | null>(null);
 
+  /* ================================================================== *
+   * OTP ORANGE / SEBPAY
+   * ================================================================== */
+
+  const [otpRequired, setOtpRequired] =
+    useState(false);
+
+  const [otpCode, setOtpCode] =
+    useState("");
+
+  const [otpUssdCode, setOtpUssdCode] =
+    useState<string | null>(null);
+
   const pollRef =
-    useRef<ReturnType<typeof setInterval> | null>(null);
+    useRef<
+      ReturnType<typeof setInterval> | null
+    >(null);
 
-  const countRef = useRef(0);
+  const countRef =
+    useRef(0);
 
-  /*
-   * Référence vers la fonction pay().
-   * MobileCartBar déclenche cette fonction via
-   * l'événement "vantom:pay".
-   */
   const payRef =
-    useRef<(() => void) | null>(null);
+    useRef<
+      (() => void) | null
+    >(null);
 
   const total = subtotal;
 
   /* ================================================================== *
-   *  INFORMER MOBILECARTBAR DE L'ÉTAPE
-   *
-   *  Étape 1 → Voir le panier
-   *  Étape 2 → Payer et confirmer ma commande
+   * ÉTAPE POUR MOBILE CART BAR
    * ================================================================== */
 
   useEffect(() => {
     window.dispatchEvent(
-      new CustomEvent("vantom:checkout-step", {
-        detail: {
-          payment: step === 2,
-        },
-      })
+      new CustomEvent(
+        "vantom:checkout-step",
+        {
+          detail: {
+            payment: step === 2,
+          },
+        }
+      )
     );
   }, [step]);
 
   /* ================================================================== *
-   *  POLLING
+   * POLLING
    * ================================================================== */
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
+  const stopPolling =
+    useCallback(() => {
+      if (pollRef.current) {
+        clearInterval(
+          pollRef.current
+        );
+
+        pollRef.current = null;
+      }
+    }, []);
 
   useEffect(() => {
-    return () => stopPolling();
+    return () =>
+      stopPolling();
   }, [stopPolling]);
 
   /* ================================================================== *
-   *  TRACKING CHECKOUT
+   * TRACKING
    * ================================================================== */
 
-  const initiateTracked = useRef(false);
+  const initiateTracked =
+    useRef(false);
 
   useEffect(() => {
     if (
@@ -181,41 +203,50 @@ export function CheckoutFlow() {
       return;
     }
 
-    initiateTracked.current = true;
+    initiateTracked.current =
+      true;
 
-    trackPixelEvent("InitiateCheckout", {
-      value: subtotal,
-      currency: "XOF",
-      num_items: lines.reduce(
-        (n, l) => n + l.quantity,
-        0
-      ),
-      content_ids: lines.map(
-        (l) => l.productId
-      ),
-      contents: lines.map((l) => ({
-        id: l.productId,
-        quantity: l.quantity,
-        item_price: l.price,
-      })),
-    });
+    trackPixelEvent(
+      "InitiateCheckout",
+      {
+        value: subtotal,
+        currency: "XOF",
+        num_items:
+          lines.reduce(
+            (n, l) =>
+              n + l.quantity,
+            0
+          ),
+        content_ids:
+          lines.map(
+            (l) =>
+              l.productId
+          ),
+        contents:
+          lines.map((l) => ({
+            id: l.productId,
+            quantity:
+              l.quantity,
+            item_price:
+              l.price,
+          })),
+      }
+    );
 
-    trackFunnelEvent("BEGIN_CHECKOUT");
+    trackFunnelEvent(
+      "BEGIN_CHECKOUT"
+    );
   }, [lines, subtotal]);
 
   /* ================================================================== *
-   *  ÉCOUTE DU CTA FIXE
+   * CTA FIXE
    * ================================================================== */
 
   useEffect(() => {
-    const handlePayRequest = () => {
-      /*
-       * Même si un événement est envoyé par erreur pendant
-       * l'étape 1, pay() vérifiera qu'une commande existe
-       * et qu'un opérateur/numéro est valide.
-       */
-      payRef.current?.();
-    };
+    const handlePayRequest =
+      () => {
+        payRef.current?.();
+      };
 
     window.addEventListener(
       "vantom:pay",
@@ -231,7 +262,7 @@ export function CheckoutFlow() {
   }, []);
 
   /* ================================================================== *
-   *  PANIER VIDE
+   * PANIER VIDE
    * ================================================================== */
 
   if (
@@ -252,10 +283,11 @@ export function CheckoutFlow() {
   }
 
   /* ================================================================== *
-   *  CHAMPS
+   * CHAMPS
    * ================================================================== */
 
-  const set = (k: keyof typeof info) =>
+  const set =
+    (k: keyof typeof info) =>
     (
       e: React.ChangeEvent<
         HTMLInputElement | HTMLSelectElement
@@ -267,32 +299,45 @@ export function CheckoutFlow() {
       }));
 
   /* ================================================================== *
-   *  VALIDATION NUMÉRO DE PAIEMENT
+   * VALIDATION PAIEMENT
    * ================================================================== */
 
-  function isPaymentPhoneValid(): boolean {
-    const country = findCountry(info.country);
+  function isPaymentPhoneValid() {
+    const country =
+      findCountry(
+        info.country
+      );
 
     if (!country) {
       return false;
     }
 
-    const digits = payPhone.replace(/\D/g, "");
+    const digits =
+      payPhone.replace(
+        /\D/g,
+        ""
+      );
 
-    if (info.country === "CI") {
+    if (
+      info.country === "CI"
+    ) {
       let national = digits;
 
-      if (national.startsWith("225")) {
-        national = national.slice(3);
+      if (
+        national.startsWith(
+          "225"
+        )
+      ) {
+        national =
+          national.slice(3);
       }
 
-      /*
-       * Validation stricte :
-       * 10 chiffres nationaux, commençant par 0.
-       */
       return (
-        national.length === 10 &&
-        /^0\d{9}$/.test(national)
+        national.length ===
+          10 &&
+        /^0\d{9}$/.test(
+          national
+        )
       );
     }
 
@@ -303,29 +348,36 @@ export function CheckoutFlow() {
   }
 
   /* ================================================================== *
-   *  VALIDATION NUMÉRO CLIENT
+   * VALIDATION CLIENT
    * ================================================================== */
 
-  function isCustomerPhoneValid(): boolean {
-    if (info.country === "CI") {
-      const digits = info.phone.replace(
-        /\D/g,
-        ""
-      );
+  function isCustomerPhoneValid() {
+    if (
+      info.country === "CI"
+    ) {
+      const digits =
+        info.phone.replace(
+          /\D/g,
+          ""
+        );
 
       let national = digits;
 
-      if (national.startsWith("225")) {
-        national = national.slice(3);
+      if (
+        national.startsWith(
+          "225"
+        )
+      ) {
+        national =
+          national.slice(3);
       }
 
-      /*
-       * Validation stricte :
-       * 10 chiffres nationaux, commençant par 0.
-       */
       return (
-        national.length === 10 &&
-        /^0\d{9}$/.test(national)
+        national.length ===
+          10 &&
+        /^0\d{9}$/.test(
+          national
+        )
       );
     }
 
@@ -336,7 +388,7 @@ export function CheckoutFlow() {
   }
 
   /* ================================================================== *
-   *  CRÉATION DE LA COMMANDE
+   * CRÉATION COMMANDE
    * ================================================================== */
 
   async function submitInfo(
@@ -346,7 +398,9 @@ export function CheckoutFlow() {
 
     setErr1(null);
 
-    if (!isCustomerPhoneValid()) {
+    if (
+      !isCustomerPhoneValid()
+    ) {
       setErr1(
         info.country === "CI"
           ? "Veuillez entrer un numéro ivoirien valide de 10 chiffres."
@@ -359,31 +413,43 @@ export function CheckoutFlow() {
     setCreating(true);
 
     try {
-      const res = await fetch(
-        "/api/checkout",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            customer: {
-              fullName: info.fullName,
-              phone: info.phone,
-              email:
-                info.email || undefined,
-              country: info.country,
+      const res =
+        await fetch(
+          "/api/checkout",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
             },
-            lines: lines.map((l) => ({
-              variantId: l.variantId,
-              quantity: l.quantity,
-            })),
-          }),
-        }
-      );
+            body: JSON.stringify({
+              customer: {
+                fullName:
+                  info.fullName,
+                phone:
+                  info.phone,
+                email:
+                  info.email ||
+                  undefined,
+                country:
+                  info.country,
+              },
 
-      const data = await res.json();
+              lines:
+                lines.map(
+                  (l) => ({
+                    variantId:
+                      l.variantId,
+                    quantity:
+                      l.quantity,
+                  })
+                ),
+            }),
+          }
+        );
+
+      const data =
+        await res.json();
 
       if (!res.ok) {
         setErr1(
@@ -391,12 +457,12 @@ export function CheckoutFlow() {
             "Une erreur est survenue."
         );
 
-        setCreating(false);
         return;
       }
 
       setOrder({
-        orderId: data.orderId,
+        orderId:
+          data.orderId,
         externalReference:
           data.externalReference,
         accessToken:
@@ -405,11 +471,14 @@ export function CheckoutFlow() {
           data.orderNumber,
       });
 
-      setPayPhone(info.phone);
+      setPayPhone(
+        info.phone
+      );
 
       setOperator(
-        operatorsFor(info.country)[0] ??
-          null
+        operatorsFor(
+          info.country
+        )[0] ?? null
       );
 
       setStep(2);
@@ -423,87 +492,101 @@ export function CheckoutFlow() {
   }
 
   /* ================================================================== *
-   *  VÉRIFICATION DU PAIEMENT
+   * VÉRIFICATION
    * ================================================================== */
 
-  const verify = useCallback(
-    async () => {
-      if (!order) return;
-
-      countRef.current += 1;
-
-      try {
-        const res = await fetch(
-          "/api/payments/verify",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              externalReference:
-                order.externalReference,
-            }),
-          }
-        );
-
-        const data = await res.json();
-
-        if (data.state === "paid") {
-          stopPolling();
-
-          setPhase("paid");
-
-          clear();
-
-          setTimeout(() => {
-            router.push(
-              `/order/${order.orderId}?token=${order.accessToken}&paid=1`
-            );
-          }, 1200);
-        } else if (
-          data.state === "rejected"
-        ) {
-          stopPolling();
-
-          setPhase("rejected");
-
-          setErr2(
-            "Le paiement a été refusé ou annulé."
-          );
-        } else if (
-          countRef.current >= MAX_POLLS
-        ) {
-          stopPolling();
-
-          setPhase("rejected");
-
-          setErr2(
-            "Délai dépassé. Si vous avez été débité, contactez-nous avec votre numéro de commande."
-          );
+  const verify =
+    useCallback(
+      async () => {
+        if (!order) {
+          return;
         }
-      } catch {
-        // On continue malgré une coupure ponctuelle.
-      }
-    },
-    [
-      order,
-      router,
-      clear,
-      stopPolling,
-    ]
-  );
+
+        countRef.current += 1;
+
+        try {
+          const res =
+            await fetch(
+              "/api/payments/verify",
+              {
+                method:
+                  "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  externalReference:
+                    order.externalReference,
+                }),
+              }
+            );
+
+          const data =
+            await res.json();
+
+          if (
+            data.state ===
+            "paid"
+          ) {
+            stopPolling();
+
+            setPhase("paid");
+
+            clear();
+
+            setTimeout(
+              () => {
+                router.push(
+                  `/order/${order.orderId}?token=${order.accessToken}&paid=1`
+                );
+              },
+              1200
+            );
+          } else if (
+            data.state ===
+            "rejected"
+          ) {
+            stopPolling();
+
+            setPhase(
+              "rejected"
+            );
+
+            setErr2(
+              "Le paiement a été refusé ou annulé."
+            );
+          } else if (
+            countRef.current >=
+            MAX_POLLS
+          ) {
+            stopPolling();
+
+            setPhase(
+              "rejected"
+            );
+
+            setErr2(
+              "Délai dépassé. Si vous avez été débité, contactez-nous avec votre numéro de commande."
+            );
+          }
+        } catch {
+          // On continue malgré une coupure.
+        }
+      },
+      [
+        order,
+        router,
+        clear,
+        stopPolling,
+      ]
+    );
 
   /* ================================================================== *
-   *  PAIEMENT
+   * PAIEMENT
    * ================================================================== */
 
   async function pay() {
-    /*
-     * Le CTA fixe ne doit fonctionner que lorsque
-     * le client est réellement à l'étape 2.
-     */
     if (step !== 2) {
       return;
     }
@@ -519,7 +602,9 @@ export function CheckoutFlow() {
       return;
     }
 
-    if (!isPaymentPhoneValid()) {
+    if (
+      !isPaymentPhoneValid()
+    ) {
       setErr2(
         info.country === "CI"
           ? "Veuillez entrer un numéro ivoirien valide de 10 chiffres."
@@ -528,30 +613,80 @@ export function CheckoutFlow() {
       return;
     }
 
+    /*
+     * Si un OTP est déjà demandé,
+     * il devient obligatoire.
+     */
+    if (
+      otpRequired &&
+      !otpCode.trim()
+    ) {
+      setErr2(
+        "Veuillez saisir le code OTP reçu sur votre téléphone."
+      );
+      return;
+    }
+
     setErr2(null);
     setPhase("pushing");
 
     try {
-      const res = await fetch(
-        "/api/payments/init",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            externalReference:
-              order.externalReference,
-            operator,
-            phone: payPhone,
-            countryCode:
-              info.country,
-          }),
-        }
-      );
+      const res =
+        await fetch(
+          "/api/payments/init",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              externalReference:
+                order.externalReference,
 
-      const data = await res.json();
+              operator,
+
+              phone: payPhone,
+
+              countryCode:
+                info.country,
+
+              otpCode:
+                otpRequired
+                  ? otpCode.trim()
+                  : undefined,
+            }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      /* ============================================================ *
+       * OTP REQUIS
+       * ============================================================ */
+
+      if (
+        res.ok &&
+        data.kind ===
+          "otp_required"
+      ) {
+        setOtpRequired(true);
+
+        setOtpUssdCode(
+          data.ussdCode ??
+            null
+        );
+
+        setPayMsg(
+          data.message ??
+            "Composez le code USSD indiqué sur votre téléphone pour recevoir votre OTP."
+        );
+
+        setPhase("form");
+
+        return;
+      }
 
       if (!res.ok) {
         setErr2(
@@ -560,21 +695,36 @@ export function CheckoutFlow() {
         );
 
         setPhase("form");
+
         return;
       }
 
+      /* ============================================================ *
+       * REDIRECTION WAVE
+       * ============================================================ */
+
       if (
-        data.kind === "redirect" &&
+        data.kind ===
+          "redirect" &&
         data.url
       ) {
         window.location.href =
           data.url;
+
         return;
       }
 
-      setPayMsg(data.message);
+      /* ============================================================ *
+       * PAIEMENT NORMAL
+       * ============================================================ */
 
-      setPhase("waiting");
+      setPayMsg(
+        data.message
+      );
+
+      setPhase(
+        "waiting"
+      );
 
       countRef.current = 0;
 
@@ -595,13 +745,26 @@ export function CheckoutFlow() {
   }
 
   /*
-   * Toujours garder la dernière version de pay()
-   * accessible au bouton fixe.
+   * Quand on change d'opérateur,
+   * l'ancien OTP ne doit jamais être réutilisé.
    */
+
+  function selectOperator(
+    op: Operator
+  ) {
+    setOperator(op);
+
+    setOtpRequired(false);
+    setOtpCode("");
+    setOtpUssdCode(null);
+    setPayMsg(null);
+    setErr2(null);
+  }
+
   payRef.current = pay;
 
   /* ================================================================== *
-   *  STYLE CHAMPS
+   * STYLE
    * ================================================================== */
 
   const field =
@@ -609,15 +772,11 @@ export function CheckoutFlow() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-      {/* ============================================================= *
-       *  COLONNE PRINCIPALE
-       * ============================================================= */}
+      {/* ============================================================ *
+       * COLONNE PRINCIPALE
+       * ============================================================ */}
 
       <div>
-        {/* ----------------------------------------------------------- *
-         *  RETOUR COORDONNÉES
-         * ----------------------------------------------------------- */}
-
         {step === 2 && (
           <button
             type="button"
@@ -625,6 +784,9 @@ export function CheckoutFlow() {
               setStep(1);
               setErr2(null);
               setPhase("form");
+              setOtpRequired(false);
+              setOtpCode("");
+              setOtpUssdCode(null);
             }}
             className="mb-4 text-sm text-ink-faint transition hover:text-ink"
           >
@@ -632,9 +794,9 @@ export function CheckoutFlow() {
           </button>
         )}
 
-        {/* ----------------------------------------------------------- *
-         *  CHEMIN COORDONNÉES → PAIEMENT
-         * ----------------------------------------------------------- */}
+        {/* ========================================================== *
+         * ÉTAPES
+         * ========================================================== */}
 
         <div className="mb-5 flex items-center gap-3 text-sm">
           <StepDot
@@ -654,13 +816,15 @@ export function CheckoutFlow() {
           />
         </div>
 
-        {/* =========================================================== *
-         *  ÉTAPE 1 — COORDONNÉES
-         * =========================================================== */}
+        {/* ========================================================== *
+         * ÉTAPE 1
+         * ========================================================== */}
 
         {step === 1 && (
           <form
-            onSubmit={submitInfo}
+            onSubmit={
+              submitInfo
+            }
             className="space-y-4 animate-fadeUp"
           >
             <div>
@@ -670,8 +834,12 @@ export function CheckoutFlow() {
 
               <input
                 required
-                value={info.fullName}
-                onChange={set("fullName")}
+                value={
+                  info.fullName
+                }
+                onChange={set(
+                  "fullName"
+                )}
                 className={field}
                 placeholder="Awa Traoré"
                 autoComplete="name"
@@ -684,12 +852,19 @@ export function CheckoutFlow() {
               </label>
 
               <CountrySelect
-                value={info.country}
-                onChange={(code) =>
-                  setInfo((f) => ({
-                    ...f,
-                    country: code,
-                  }))
+                value={
+                  info.country
+                }
+                onChange={(
+                  code
+                ) =>
+                  setInfo(
+                    (f) => ({
+                      ...f,
+                      country:
+                        code,
+                    })
+                  )
                 }
               />
             </div>
@@ -701,20 +876,28 @@ export function CheckoutFlow() {
 
               <input
                 required
-                value={info.phone}
-                onChange={set("phone")}
+                value={
+                  info.phone
+                }
+                onChange={set(
+                  "phone"
+                )}
                 className={field}
                 placeholder="07 00 00 00 00"
                 inputMode="tel"
                 autoComplete="tel"
               />
 
-              {info.phone.length > 3 &&
+              {info.phone
+                .length > 3 &&
                 !isCustomerPhoneValid() && (
                   <p className="mt-1 text-xs text-warn">
-                    {info.country === "CI"
+                    {info.country ===
+                    "CI"
                       ? "Entrez un numéro ivoirien valide de 10 chiffres."
-                      : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(info.country)?.name} habituel.`}
+                      : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(
+                          info.country
+                        )?.name} habituel.`}
                   </p>
                 )}
             </div>
@@ -726,8 +909,12 @@ export function CheckoutFlow() {
 
               <input
                 type="email"
-                value={info.email}
-                onChange={set("email")}
+                value={
+                  info.email
+                }
+                onChange={set(
+                  "email"
+                )}
                 className={field}
                 placeholder="awa@email.com"
                 autoComplete="email"
@@ -752,18 +939,18 @@ export function CheckoutFlow() {
           </form>
         )}
 
-        {/* =========================================================== *
-         *  ÉTAPE 2 — PAIEMENT
-         * =========================================================== */}
+        {/* ========================================================== *
+         * ÉTAPE 2
+         * ========================================================== */}
 
         {step === 2 && (
           <div className="animate-fadeUp">
             {(phase === "form" ||
               phase === "pushing") && (
               <>
-                {/* --------------------------------------------------- *
-                 *  PROTECTION
-                 * --------------------------------------------------- */}
+                {/* -------------------------------------------------- *
+                 * PROTECTION
+                 * -------------------------------------------------- */}
 
                 <div className="mb-5 flex items-center gap-3 rounded-xl border border-paper-line bg-paper-soft px-4 py-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-paper">
@@ -778,55 +965,65 @@ export function CheckoutFlow() {
                   </p>
                 </div>
 
-                {/* --------------------------------------------------- *
-                 *  OPÉRATEURS
-                 * --------------------------------------------------- */}
+                {/* -------------------------------------------------- *
+                 * OPÉRATEURS
+                 * -------------------------------------------------- */}
 
                 <label className="eyebrow mb-2 block">
                   Opérateur Mobile Money
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {ops.map((op) => (
-                    <button
-                      key={op}
-                      type="button"
-                      onClick={() =>
-                        setOperator(op)
-                      }
-                      aria-pressed={
-                        operator === op
-                      }
-                      className={`flex min-h-[56px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
-                        operator === op
-                          ? "border-ink bg-ink text-paper"
-                          : "border-paper-line bg-paper hover:border-ink"
-                      }`}
-                    >
-                      <img
-                        src={
-                          OPERATOR_LOGO[op]
-                        }
-                        alt={
-                          OPERATOR_LABEL[op]
-                        }
-                        className="h-9 w-9 shrink-0 rounded-full object-contain"
-                      />
-
-                      <span className="text-sm font-medium">
-                        {
-                          OPERATOR_LABEL[
+                  {ops.map(
+                    (op) => (
+                      <button
+                        key={op}
+                        type="button"
+                        onClick={() =>
+                          selectOperator(
                             op
-                          ]
+                          )
                         }
-                      </span>
-                    </button>
-                  ))}
+                        aria-pressed={
+                          operator ===
+                          op
+                        }
+                        className={`flex min-h-[56px] items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                          operator ===
+                          op
+                            ? "border-ink bg-ink text-paper"
+                            : "border-paper-line bg-paper hover:border-ink"
+                        }`}
+                      >
+                        <img
+                          src={
+                            OPERATOR_LOGO[
+                              op
+                            ]
+                          }
+                          alt={
+                            OPERATOR_LABEL[
+                              op
+                            ]
+                          }
+                          className="h-9 w-9 shrink-0 rounded-full object-contain"
+                        />
+
+                        <span className="text-sm font-medium">
+                          {
+                            OPERATOR_LABEL[
+                              op
+                            ]
+                          }
+                        </span>
+                      </button>
+                    )
+                  )}
                 </div>
 
-                {/* --------------------------------------------------- *
-                 *  NUMÉRO DE PAIEMENT
-                 * --------------------------------------------------- */}
+                {/* -------------------------------------------------- *
+                 * NUMÉRO
+                 * -------------------------------------------------- */}
 
                 <div className="mt-4">
                   <label className="eyebrow mb-1.5 block">
@@ -834,10 +1031,15 @@ export function CheckoutFlow() {
                   </label>
 
                   <input
-                    value={payPhone}
-                    onChange={(e) =>
+                    value={
+                      payPhone
+                    }
+                    onChange={(
+                      e
+                    ) =>
                       setPayPhone(
-                        e.target.value
+                        e.target
+                          .value
                       )
                     }
                     className={field}
@@ -845,12 +1047,16 @@ export function CheckoutFlow() {
                     placeholder="07 00 00 00 00"
                   />
 
-                  {payPhone.length > 3 &&
+                  {payPhone
+                    .length > 3 &&
                   !isPaymentPhoneValid() ? (
                     <p className="mt-1 text-xs text-warn">
-                      {info.country === "CI"
+                      {info.country ===
+                      "CI"
                         ? "Le numéro ivoirien doit comporter 10 chiffres."
-                        : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(info.country)?.name} habituel.`}
+                        : `Ce nombre de chiffres ne correspond pas à un numéro ${findCountry(
+                            info.country
+                          )?.name} habituel.`}
                     </p>
                   ) : (
                     <p className="mt-1 text-xs text-ink-faint">
@@ -859,9 +1065,73 @@ export function CheckoutFlow() {
                   )}
                 </div>
 
-                {/* --------------------------------------------------- *
-                 *  ERREUR
-                 * --------------------------------------------------- */}
+                {/* ================================================== *
+                 * OTP
+                 * ================================================== */}
+
+                {otpRequired && (
+                  <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                    <div className="text-sm font-semibold text-ink">
+                      Vérification Orange
+                    </div>
+
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                      {otpUssdCode ? (
+                        <>
+                          Composez{" "}
+                          <span className="font-bold text-ink">
+                            {otpUssdCode}
+                          </span>{" "}
+                          sur votre téléphone pour recevoir votre code OTP.
+                        </>
+                      ) : (
+                        "Composez le code USSD de votre opérateur pour recevoir votre code OTP."
+                      )}
+                    </p>
+
+                    <label className="eyebrow mt-3 mb-1.5 block">
+                      Code OTP
+                    </label>
+
+                    <input
+                      value={
+                        otpCode
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setOtpCode(
+                          e.target
+                            .value
+                        )
+                      }
+                      className={field}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Entrez votre code OTP"
+                      maxLength={20}
+                    />
+
+                    <p className="mt-1.5 text-[11px] text-ink-faint">
+                      Le code OTP est utilisé uniquement pour valider cette demande de paiement.
+                    </p>
+                  </div>
+                )}
+
+                {/* -------------------------------------------------- *
+                 * MESSAGE
+                 * -------------------------------------------------- */}
+
+                {payMsg &&
+                  otpRequired && (
+                    <p className="mt-3 rounded-xl bg-paper-soft px-4 py-3 text-sm text-ink-soft">
+                      {payMsg}
+                    </p>
+                  )}
+
+                {/* -------------------------------------------------- *
+                 * ERREUR
+                 * -------------------------------------------------- */}
 
                 {err2 && (
                   <p className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -869,22 +1139,28 @@ export function CheckoutFlow() {
                   </p>
                 )}
 
-                {/* --------------------------------------------------- *
-                 *  BOUTON DESKTOP
-                 * --------------------------------------------------- */}
+                {/* -------------------------------------------------- *
+                 * BOUTON DESKTOP
+                 * -------------------------------------------------- */}
 
                 <div className="hidden lg:block">
                   <button
                     type="button"
-                    onClick={pay}
+                    onClick={
+                      pay
+                    }
                     disabled={
                       !operator ||
                       !isPaymentPhoneValid() ||
-                      phase === "pushing"
+                      phase ===
+                        "pushing" ||
+                      (otpRequired &&
+                        !otpCode.trim())
                     }
-                    className="mt-5 w-full rounded-pill bg-emerald-600 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="mt-5 w-full rounded-pill bg-[#1F7955] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 animate-vantom-cta"
                   >
-                    {phase === "pushing"
+                    {phase ===
+                    "pushing"
                       ? "Envoi…"
                       : `Payer et confirmer ma commande · ${formatXOF(
                           total
@@ -894,11 +1170,12 @@ export function CheckoutFlow() {
               </>
             )}
 
-            {/* ======================================================= *
-             *  PAIEMENT EN ATTENTE
-             * ======================================================= */}
+            {/* ====================================================== *
+             * ATTENTE
+             * ====================================================== */}
 
-            {phase === "waiting" && (
+            {phase ===
+              "waiting" && (
               <div className="py-8 text-center">
                 <Spinner />
 
@@ -928,11 +1205,12 @@ export function CheckoutFlow() {
               </div>
             )}
 
-            {/* ======================================================= *
-             *  PAIEMENT CONFIRMÉ
-             * ======================================================= */}
+            {/* ====================================================== *
+             * PAYÉ
+             * ====================================================== */}
 
-            {phase === "paid" && (
+            {phase ===
+              "paid" && (
               <div className="py-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ok/15 text-ok">
                   <CheckCircle2
@@ -952,11 +1230,12 @@ export function CheckoutFlow() {
               </div>
             )}
 
-            {/* ======================================================= *
-             *  PAIEMENT REFUSÉ
-             * ======================================================= */}
+            {/* ====================================================== *
+             * REFUSÉ
+             * ====================================================== */}
 
-            {phase === "rejected" && (
+            {phase ===
+              "rejected" && (
               <div className="py-8 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-danger/15 text-danger">
                   <XCircle
@@ -976,7 +1255,9 @@ export function CheckoutFlow() {
                 <button
                   type="button"
                   onClick={() => {
-                    setPhase("form");
+                    setPhase(
+                      "form"
+                    );
                     setErr2(null);
                   }}
                   className="mt-5 rounded-pill border border-ink px-6 py-3 text-sm font-semibold"
@@ -989,9 +1270,9 @@ export function CheckoutFlow() {
         )}
       </div>
 
-      {/* ============================================================= *
-       *  RÉCAPITULATIF
-       * ============================================================= */}
+      {/* ============================================================ *
+       * RÉCAPITULATIF
+       * ============================================================ */}
 
       <div className="lg:sticky lg:top-20 lg:h-fit">
         <div className="rounded-card border border-paper-line bg-paper-soft p-5">
@@ -1000,25 +1281,31 @@ export function CheckoutFlow() {
           </div>
 
           <ul className="space-y-2 text-sm">
-            {lines.map((l) => (
-              <li
-                key={l.variantId}
-                className="flex justify-between gap-2"
-              >
-                <span className="text-ink-soft">
-                  {l.name}{" "}
-                  <span className="tech text-xs">
-                    ·{l.size}·×{l.quantity}
+            {lines.map(
+              (l) => (
+                <li
+                  key={
+                    l.variantId
+                  }
+                  className="flex justify-between gap-2"
+                >
+                  <span className="text-ink-soft">
+                    {l.name}{" "}
+                    <span className="tech text-xs">
+                      ·{l.size}·×
+                      {l.quantity}
+                    </span>
                   </span>
-                </span>
 
-                <span className="tech">
-                  {formatXOF(
-                    l.price * l.quantity
-                  )}
-                </span>
-              </li>
-            ))}
+                  <span className="tech">
+                    {formatXOF(
+                      l.price *
+                        l.quantity
+                    )}
+                  </span>
+                </li>
+              )
+            )}
           </ul>
 
           <div className="mt-3 border-t border-paper-line pt-3 text-sm">
@@ -1028,7 +1315,9 @@ export function CheckoutFlow() {
               </span>
 
               <span className="tech">
-                {formatXOF(subtotal)}
+                {formatXOF(
+                  subtotal
+                )}
               </span>
             </div>
 
@@ -1048,7 +1337,9 @@ export function CheckoutFlow() {
               </span>
 
               <span className="tech text-lg">
-                {formatXOF(total)}
+                {formatXOF(
+                  total
+                )}
               </span>
             </div>
           </div>
@@ -1069,7 +1360,7 @@ export function CheckoutFlow() {
 }
 
 /* ==================================================================== *
- *  INDICATEUR D'ÉTAPE
+ * STEP DOT
  * ==================================================================== */
 
 function StepDot({
@@ -1118,7 +1409,7 @@ function StepDot({
 }
 
 /* ==================================================================== *
- *  SPINNER
+ * SPINNER
  * ==================================================================== */
 
 function Spinner() {
