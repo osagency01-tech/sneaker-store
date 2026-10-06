@@ -16,10 +16,7 @@ export function ProductBuyPanel({
   const { add } = useCart();
   const router = useRouter();
 
-  const [variantId, setVariantId] = useState<string | null>(
-    null
-  );
-
+  const [variantId, setVariantId] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
 
   const variants = product.variants ?? [];
@@ -28,11 +25,25 @@ export function ProductBuyPanel({
     (v) => v.id === variantId
   );
 
-  // Les sacs n'ont pas besoin de sélection de variante.
+  /*
+   * Produits sans sélection de variante :
+   * - Sacs
+   * - Montres
+   */
   const isBag =
     product.category?.slug === "sacs" ||
     product.slug === "sac-couleur" ||
     product.slug === "sac-motif";
+
+  const isWatch =
+    product.category?.slug === "montres" ||
+    product.slug === "audemars-royal-oak-black";
+
+  /*
+   * Seuls les sneakers utilisent une pointure.
+   */
+  const needsSizeSelection =
+    !isBag && !isWatch;
 
   const onPromo =
     !!product.compare_at_price &&
@@ -49,21 +60,23 @@ export function ProductBuyPanel({
 
   function handleAdd(goToCheckout: boolean) {
     /*
-     * SAC :
-     * Pas de sélection de pointure/couleur/motif.
-     * On ajoute directement le produit au panier.
+     * PRODUITS SANS VARIANTE :
+     * Sacs et montres.
+     *
+     * On utilise simplement la première variante
+     * présente en base pour gérer le stock.
      */
-    if (isBag) {
-      const bagVariant = variants[0];
+    if (!needsSizeSelection) {
+      const simpleVariant = variants[0];
 
-      // Sécurité : le produit doit avoir au moins une variante en base.
-      if (!bagVariant || bagVariant.stock <= 0) {
+      // Sécurité : le produit doit avoir une variante en base.
+      if (!simpleVariant || simpleVariant.stock <= 0) {
         return;
       }
 
       add({
         productId: product.id,
-        variantId: bagVariant.id,
+        variantId: simpleVariant.id,
         slug: product.slug,
         name: product.name,
         size: "",
@@ -177,9 +190,9 @@ export function ProductBuyPanel({
       </div>
 
       {/* ================================
-          POINTURE UNIQUEMENT POUR SNEAKERS
+          POINTURE UNIQUEMENT POUR LES SNEAKERS
           ================================ */}
-      {!isBag && (
+      {needsSizeSelection && (
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
             <span className="eyebrow">
@@ -231,7 +244,7 @@ export function ProductBuyPanel({
         <button
           type="button"
           onClick={() => handleAdd(false)}
-          disabled={!isBag && !selected}
+          disabled={needsSizeSelection && !selected}
           className="flex-1 rounded-pill border border-ink py-3.5 text-sm font-semibold disabled:opacity-40"
         >
           {added
@@ -242,7 +255,7 @@ export function ProductBuyPanel({
         <button
           type="button"
           onClick={() => handleAdd(true)}
-          disabled={!isBag && !selected}
+          disabled={needsSizeSelection && !selected}
           className="flex-1 rounded-pill bg-ink py-3.5 text-sm font-semibold text-paper disabled:opacity-40"
         >
           Acheter
@@ -250,7 +263,7 @@ export function ProductBuyPanel({
       </div>
 
       {/* Message de sélection uniquement pour les sneakers */}
-      {!isBag && !selected && (
+      {needsSizeSelection && !selected && (
         <p className="mt-3 hidden text-center text-xs text-ink-faint sm:block">
           Choisissez une pointure pour continuer.
         </p>
@@ -261,11 +274,11 @@ export function ProductBuyPanel({
         <div className="mx-auto flex max-w-app items-center gap-3">
           <div className="leading-tight">
             <div className="eyebrow">
-              {isBag
-                ? "Prix"
-                : selected
+              {needsSizeSelection
+                ? selected
                   ? `Pointure ${selected.size}`
-                  : "Prix"}
+                  : "Prix"
+                : "Prix"}
             </div>
 
             <div className="flex items-baseline gap-1.5">
@@ -286,14 +299,14 @@ export function ProductBuyPanel({
           <button
             type="button"
             onClick={() => handleAdd(true)}
-            disabled={!isBag && !selected}
+            disabled={needsSizeSelection && !selected}
             className="ml-auto flex-1 rounded-pill bg-ink py-3 text-sm font-semibold text-paper disabled:opacity-40"
           >
-            {isBag
-              ? "Commander"
-              : !selected
+            {needsSizeSelection
+              ? !selected
                 ? "Choisir une pointure"
-                : "Commander"}
+                : "Commander"
+              : "Commander"}
           </button>
         </div>
       </div>

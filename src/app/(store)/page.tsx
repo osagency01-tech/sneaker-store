@@ -6,17 +6,16 @@ import { HeroSneaker } from "@/components/HeroSneaker";
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const [products, categories] = await Promise.all([getProducts(), getCategories()]);
+  const [products, categories] = await Promise.all([
+    getProducts(),
+    getCategories(),
+  ]);
 
-  // Le produit flottant du Hero doit toujours être une sneaker.
-  // Les sacs ne doivent jamais apparaître ici.
-  const hero =
-    products.find(
-      (p) =>
-        p.category?.slug !== "sacs" &&
-        p.slug !== "sac-couleur" &&
-        p.slug !== "sac-motif"
-    ) ?? products[0];
+  // Le produit flottant du Hero est toujours le Nike TN Special.
+  // Les nouveaux produits (montres, sacs, etc.) ne peuvent pas le remplacer.
+  const hero = products.find(
+    (p) => p.slug === "nike-tn-special"
+  );
 
   const rest = products.filter((p) => p.id !== hero?.id);
   const heroImg = hero?.images?.[0]?.url ?? null;
@@ -70,10 +69,16 @@ export default async function HomePage() {
                 aria-label={hero.name}
                 className="block h-full w-full cursor-pointer"
               >
-                <HeroSneaker src={heroImg} alt={hero.name} />
+                <HeroSneaker
+                  src={heroImg}
+                  alt={hero.name}
+                />
               </Link>
             ) : (
-              <HeroSneaker src={heroImg} alt="Sneaker Vantom" />
+              <HeroSneaker
+                src={heroImg}
+                alt="Sneaker Vantom"
+              />
             )}
           </div>
         </div>
@@ -128,16 +133,27 @@ export default async function HomePage() {
       <section className="mx-auto mt-14 max-w-app px-4">
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            ["Mobile Money", "Wave, Orange, MTN, Moov. Validé sur ton téléphone."],
-            ["Sans compte", "Commande en quelques champs, suis par lien."],
-            ["Stock réel", "Ce qui s'affiche est ce qui part."],
+            [
+              "Mobile Money",
+              "Wave, Orange, MTN, Moov. Validé sur ton téléphone.",
+            ],
+            [
+              "Sans compte",
+              "Commande en quelques champs, suis par lien.",
+            ],
+            [
+              "Stock réel",
+              "Ce qui s'affiche est ce qui part.",
+            ],
           ].map(([t, d]) => (
             <div
               key={t}
               className="rounded-card border border-paper-line bg-paper p-6 shadow-card"
             >
               <div className="display text-lg">{t}</div>
-              <p className="mt-1.5 text-sm text-ink-faint">{d}</p>
+              <p className="mt-1.5 text-sm text-ink-faint">
+                {d}
+              </p>
             </div>
           ))}
         </div>
